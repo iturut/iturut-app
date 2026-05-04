@@ -29,7 +29,7 @@ const SpeechToText = () => {
 
       console.log('📡 Fetch gönderiliyor...');
       try {
-        const response = await fetch('http://localhost:5000/speech-to-text', {
+        const response = await fetch('https://iturut-app.onrender.com/speech-to-text', {
           method: 'POST',
           body: formData,
         });
