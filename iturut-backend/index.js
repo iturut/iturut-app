@@ -31,8 +31,7 @@ app.post('/speech-to-text', upload.single('audio'), async (req, res) => {
       contentType: 'audio/webm',
     });
     formData.append('model', 'whisper-1');
-    formData.append('language', 'tr');
-
+    formData.append('language', req.file && req.body.language ? req.body.language : 'tr');
     console.log('📡 Whisper\'a gönderiliyor...');
 
     const response = await axios.post(
