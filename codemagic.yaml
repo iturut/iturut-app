@@ -9,6 +9,9 @@ workflows:
         BUNDLE_ID: "com.iturut.voicenoteapp"
       node: 22
       xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.iturut.voicenoteapp
     scripts:
       - name: Install dependencies
         script: |
