@@ -9,7 +9,6 @@ workflows:
         BUNDLE_ID: "com.iturut.voicenoteapp"
       node: 22
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Install dependencies
         script: |
@@ -23,9 +22,6 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync ios
-      - name: Install CocoaPods
-        script: |
-          cd $CM_BUILD_DIR/ios/App && pod install --repo-update
       - name: Build iOS
         script: |
           xcode-project use-profiles
