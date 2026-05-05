@@ -25,7 +25,7 @@ workflows:
           npx cap sync ios
       - name: Install CocoaPods
         script: |
-          cd ios/App && pod install
+          cd $CM_BUILD_DIR/ios/App && pod install --repo-update
       - name: Build iOS
         script: |
           xcode-project use-profiles
