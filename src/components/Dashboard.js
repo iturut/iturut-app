@@ -9,7 +9,7 @@ import {
 
 const AZURE_KEY = process.env.REACT_APP_AZURE_SPEECH_KEY;
 const AZURE_REGION = 'canadacentral';
-const MAX_DURATION = 3 * 60 * 1000;
+
 
 function Dashboard() {
   const [user, setUser] = useState(null);
