@@ -3,7 +3,7 @@ const multer = require('multer');
 const axios = require('axios');
 const cors = require('cors');
 const fs = require('fs');
-const { exec } = require('child_process');
+const FormData = require('form-data');
 require('dotenv').config();
 
 const app = express();
@@ -17,62 +17,84 @@ app.use(cors({
 
 app.use(express.json());
 
+// Ses dosyasını metne çevir (Whisper)
 app.post('/speech-to-text', upload.single('audio'), async (req, res) => {
   const originalFile = req.file;
   const originalPath = originalFile.path;
-  const wavPath = `${originalPath}.wav`;
 
   console.log('🎧 Ses dosyası alındı:', originalFile.originalname);
-  console.log('🔄 WAV formatına dönüştürülüyor...');
 
-  const ffmpegCommand = `ffmpeg -i ${originalPath} -ar 16000 -ac 1 -f wav ${wavPath}`;
+  try {
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(originalPath), {
+      filename: 'audio.webm',
+      contentType: 'audio/webm',
+    });
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'tr');
 
-  exec(ffmpegCommand, async (error, stdout, stderr) => {
-    if (error) {
-      console.error('❌ FFmpeg hatası:', error.message);
-      return res.status(500).json({ error: 'FFmpeg conversion failed' });
-    }
+    console.log('📡 Whisper\'a gönderiliyor...');
 
-    console.log('✅ Dönüştürme tamam, Azure’a gönderiliyor...');
+    const response = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      }
+    );
 
-    try {
-      const audioBuffer = fs.readFileSync(wavPath);
+    const resultText = response.data.text || '[Ses tanınamadı]';
+    console.log('✅ Whisper yanıtı:', resultText);
 
-     const response = await axios({
-  method: 'post',
-  url: `https://${process.env.AZURE_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=tr-TR`,
-  headers: {
-    'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY,
-    'Content-Type': 'audio/wav',
-    'Accept': 'application/json'
-  },
-  data: audioBuffer
+    fs.unlinkSync(originalPath);
+
+    res.json({ transcript: resultText });
+  } catch (err) {
+    console.error('❌ Whisper hata:', err.response?.data || err.message);
+    res.status(500).json({
+      error: 'Speech-to-text failed',
+      details: err.response?.data || err.message,
+    });
+  }
 });
 
+// ChatGPT ile düzenleme
+app.post('/chatgpt/edit', async (req, res) => {
+  const { text, type } = req.body;
+  const prompt =
+    type === 'grammar'
+      ? `Aşağıdaki Türkçe metnin sadece dil bilgisi ve yazım hatalarını düzelt:\n\n"${text}"`
+      : `Aşağıdaki Türkçe metni daha profesyonel, düzenli ve anlaşılır şekilde yeniden yaz:\n\n"${text}"`;
 
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      }
+    );
 
-      const resultText =
-        response.data.DisplayText ||
-        response.data.NBest?.[0]?.Display ||
-        '[No text recognized]';
-
-      console.log('✅ Azure yanıtı:', resultText);
-      console.log('🧠 Algılanan Dil:', response.data.DetectionLanguage || 'Belirlenemedi');
-
-      fs.unlinkSync(originalPath);
-      fs.unlinkSync(wavPath);
-
-      res.json({ transcript: resultText });
-    } catch (err) {
-      console.error('❌ Azure hata:', err.response?.data || err.message);
-      res.status(500).json({
-        error: 'Speech-to-text failed',
-        details: err.response?.data || err.message,
-      });
-    }
-  });
+    res.json({ result: response.data.choices[0].message.content.trim() });
+  } catch (err) {
+    console.error('❌ ChatGPT hata:', err.response?.data || err.message);
+    res.status(500).json({
+      error: 'ChatGPT düzenleme hatası',
+      details: err.response?.data || err.message,
+    });
+  }
 });
 
 app.listen(process.env.PORT || 5000, () => {
-  console.log(`Server running on port ${process.env.PORT || 5000}`);
+  console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
 });

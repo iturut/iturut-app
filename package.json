@@ -11,6 +11,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "cors": "^2.8.5",
+    "form-data": "^4.0.5",
     "iturut": "file:",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
