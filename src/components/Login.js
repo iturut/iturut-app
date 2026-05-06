@@ -8,8 +8,9 @@ function Login() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-
- const handleLogin = async () => {
+  
+const handleLogin = async () => {
+    alert('Buton çalışıyor - Email: ' + email);
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
