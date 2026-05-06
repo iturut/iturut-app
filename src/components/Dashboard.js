@@ -51,12 +51,11 @@ function Dashboard() {
   const [activeTab, setActiveTab]               = useState('home');
   const [keyboardHeight, setKeyboardHeight]     = useState(0);
 
-  const recognizerRef    = useRef(null);
-  const timerRef         = useRef(null);
-  const isRecordingRef   = useRef(false); // mirrors isRecording for use inside closures
-  const navigate         = useNavigate();
+  const recognizerRef  = useRef(null);
+  const timerRef       = useRef(null);
+  const isRecordingRef = useRef(false);
+  const navigate       = useNavigate();
 
-  // keep ref in sync with state
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
   useEffect(() => {
@@ -103,7 +102,6 @@ function Dashboard() {
     navigate('/');
   }
 
-  // useCallback so the function identity is stable — no stale closure issues
   const stopRecording = useCallback(() => {
     setIsRecording(false);
     isRecordingRef.current = false;
@@ -159,8 +157,6 @@ function Dashboard() {
       if (seconds <= 0 && isRecordingRef.current) stopRecording();
     }, 1000);
   }, [language, stopRecording]);
-
-
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -232,165 +228,168 @@ function Dashboard() {
     </div>
   );
 
-  const HomeTab = () => (
-    <div style={s.tabContent}>
-      <div style={s.speakWrapper}>
-        {isRecording && <div style={s.ripple1}/>}
-        {isRecording && <div style={s.ripple2}/>}
-        <button 
-  onPointerDown={() => {
-    if (isRecordingRef.current) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  }}
-  style={isRecording ? s.stopBtn : s.speakBtn}
->
-  {isRecording ? <IconStop /> : <IconMic />}
-  <span style={s.speakLabel}>
-    {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
-  </span>
-</button>
-      </div>
-
-      {isRecording && (
-        <div style={s.timerRow}>
-          <span style={{ ...s.timer, color: warning ? T.danger : T.text }}>{formatTime(timeLeft)}</span>
-          {warning && <span style={s.warningBadge}>{language === 'tr' ? 'Az kaldı!' : 'Almost done!'}</span>}
-        </div>
-      )}
-
-      {status && <p style={s.statusText}>{status}</p>}
-
-      <textarea
-        value={transcript || ''}
-        onChange={e => setTranscript(e.target.value)}
-        placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
-        style={s.transcriptBox}
-      />
-
-      <div style={s.actionBar}>
-        <button onClick={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
-          <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
-        </button>
-        <button onClick={createNote} disabled={!transcript} style={s.actionBtn(T.success, !transcript)}>
-          <IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span>
-        </button>
-        <button onClick={shareText} disabled={!transcript} style={s.actionBtn(T.warn, !transcript)}>
-          <IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span>
-        </button>
-      </div>
-    </div>
-  );
-
-  const NotesTab = () => (
-    <div style={s.tabContent}>
-      <div style={s.filterRow}>
-        <select
-          value={selectedCategory}
-          onChange={e => { setSelectedCategory(e.target.value); loadNotes(user.uid, e.target.value); }}
-          style={s.select}
-        >
-          <option value="all">{language === 'tr' ? 'Tüm Notlar' : 'All Notes'}</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <button onClick={addCategory} style={s.addCatBtn}>+</button>
-      </div>
-
-      {notes.length === 0 ? (
-        <div style={s.emptyState}>
-          <p style={{ color: T.textDim, fontSize:'0.9rem' }}>
-            {language === 'tr' ? 'Henüz not yok' : 'No notes yet'}
-          </p>
-        </div>
-      ) : (
-        <div style={s.noteList}>
-          {notes.map(note => (
-            <div
-              key={note.id}
-              onClick={() => setSelectedNote(note)}
-              style={{ ...s.noteCard, borderColor: selectedNote?.id === note.id ? T.accent : 'transparent' }}
-            >
-              <h4 style={s.noteCardTitle}>{note.title || (language === 'tr' ? 'Başlıksız' : 'Untitled')}</h4>
-              <p style={s.noteCardPreview}>{(note.content || '').substring(0, 80)}…</p>
-              <small style={s.noteCardDate}>
-                {note.updatedAt?.toDate?.()?.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US') || ''}
-              </small>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {selectedNote && (
-        <div style={s.noteEditorOverlay}>
-          <div style={{
-            ...s.noteEditor,
-            marginBottom: keyboardHeight > 0 ? keyboardHeight : 0,
-            maxHeight: keyboardHeight > 0 ? '58vh' : '82vh',
-          }}>
-            <input
-              value={selectedNote.title || ''}
-              onChange={e => setSelectedNote(p => ({ ...p, title: e.target.value }))}
-              style={s.titleInput}
-              placeholder={language === 'tr' ? 'Başlık…' : 'Title…'}
-              autoComplete="off"
-            />
-            <textarea
-              value={selectedNote.content || ''}
-              onChange={e => setSelectedNote(p => ({ ...p, content: e.target.value }))}
-              style={{ ...s.noteTextarea, minHeight: keyboardHeight > 0 ? 60 : 140 }}
-              autoCapitalize="sentences"
-            />
-            <div style={s.editorToolbar}>
-              <button onClick={saveNote}                    style={s.actionBtn(T.success)}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
-              <button onClick={deleteNote}                  style={s.actionBtn(T.danger)}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
-              <button onClick={shareText}                   style={s.actionBtn(T.warn)}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
-              <button onClick={() => setSelectedNote(null)} style={s.actionBtn(T.textDim)}><span>✕</span></button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const ProfileTab = () => (
-    <div style={s.tabContent}>
-      <div style={s.profileCard}>
-        <div style={s.avatar}>{user.email?.[0]?.toUpperCase()}</div>
-        <p style={s.profileEmail}>{user.email}</p>
-      </div>
-      <div style={s.settingGroup}>
-        <p style={s.settingLabel}>{language === 'tr' ? 'Uygulama Dili' : 'App Language'}</p>
-        <div style={s.langToggle}>
-          <button onClick={() => setLanguage('tr')} style={language === 'tr' ? s.langActive : s.langInactive}>🇹🇷 Türkçe</button>
-          <button onClick={() => setLanguage('en')} style={language === 'en' ? s.langActive : s.langInactive}>🇬🇧 English</button>
-        </div>
-      </div>
-      <button onClick={handleLogout} style={s.logoutBtn}>
-        {language === 'tr' ? 'Çıkış Yap' : 'Sign Out'}
-      </button>
-    </div>
-  );
-
   return (
     <div style={s.app}>
       <header style={s.header}>
         <span style={s.headerLogo}>🎙️</span>
         <span style={s.headerTitle}>iTurut</span>
       </header>
+
       <main style={s.main}>
-        {activeTab === 'home'    && <HomeTab />}
-        {activeTab === 'notes'   && <NotesTab />}
-        {activeTab === 'profile' && <ProfileTab />}
+
+        {/* ── HOME TAB ── */}
+        {activeTab === 'home' && (
+          <div style={s.tabContent}>
+            <div style={s.speakWrapper}>
+              {isRecording && <div style={s.ripple1}/>}
+              {isRecording && <div style={s.ripple2}/>}
+              <button
+                onPointerDown={() => {
+                  if (isRecordingRef.current) {
+                    stopRecording();
+                  } else {
+                    startRecording();
+                  }
+                }}
+                style={isRecording ? s.stopBtn : s.speakBtn}
+              >
+                {isRecording ? <IconStop /> : <IconMic />}
+                <span style={s.speakLabel}>
+                  {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
+                </span>
+              </button>
+            </div>
+
+            {isRecording && (
+              <div style={s.timerRow}>
+                <span style={{ ...s.timer, color: warning ? T.danger : T.text }}>{formatTime(timeLeft)}</span>
+                {warning && <span style={s.warningBadge}>{language === 'tr' ? 'Az kaldı!' : 'Almost done!'}</span>}
+              </div>
+            )}
+
+            {status && <p style={s.statusText}>{status}</p>}
+
+            <textarea
+              value={transcript || ''}
+              onChange={e => setTranscript(e.target.value)}
+              placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
+              style={s.transcriptBox}
+            />
+
+            <div style={s.actionBar}>
+              <button onPointerDown={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
+                <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
+              </button>
+              <button onPointerDown={createNote} disabled={!transcript} style={s.actionBtn(T.success, !transcript)}>
+                <IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span>
+              </button>
+              <button onPointerDown={shareText} disabled={!transcript} style={s.actionBtn(T.warn, !transcript)}>
+                <IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── NOTES TAB ── */}
+        {activeTab === 'notes' && (
+          <div style={s.tabContent}>
+            <div style={s.filterRow}>
+              <select
+                value={selectedCategory}
+                onChange={e => { setSelectedCategory(e.target.value); loadNotes(user.uid, e.target.value); }}
+                style={s.select}
+              >
+                <option value="all">{language === 'tr' ? 'Tüm Notlar' : 'All Notes'}</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onPointerDown={addCategory} style={s.addCatBtn}>+</button>
+            </div>
+
+            {notes.length === 0 ? (
+              <div style={s.emptyState}>
+                <p style={{ color: T.textDim, fontSize:'0.9rem' }}>
+                  {language === 'tr' ? 'Henüz not yok' : 'No notes yet'}
+                </p>
+              </div>
+            ) : (
+              <div style={s.noteList}>
+                {notes.map(note => (
+                  <div
+                    key={note.id}
+                    onPointerDown={() => setSelectedNote(note)}
+                    style={{ ...s.noteCard, borderColor: selectedNote?.id === note.id ? T.accent : 'transparent' }}
+                  >
+                    <h4 style={s.noteCardTitle}>{note.title || (language === 'tr' ? 'Başlıksız' : 'Untitled')}</h4>
+                    <p style={s.noteCardPreview}>{(note.content || '').substring(0, 80)}…</p>
+                    <small style={s.noteCardDate}>
+                      {note.updatedAt?.toDate?.()?.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US') || ''}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedNote && (
+              <div style={s.noteEditorOverlay}>
+                <div style={{
+                  ...s.noteEditor,
+                  marginBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+                  maxHeight: keyboardHeight > 0 ? '58vh' : '82vh',
+                }}>
+                  <input
+                    value={selectedNote.title || ''}
+                    onChange={e => setSelectedNote(p => ({ ...p, title: e.target.value }))}
+                    style={s.titleInput}
+                    placeholder={language === 'tr' ? 'Başlık…' : 'Title…'}
+                    autoComplete="off"
+                  />
+                  <textarea
+                    value={selectedNote.content || ''}
+                    onChange={e => setSelectedNote(p => ({ ...p, content: e.target.value }))}
+                    style={{ ...s.noteTextarea, minHeight: keyboardHeight > 0 ? 60 : 140 }}
+                    autoCapitalize="sentences"
+                  />
+                  <div style={s.editorToolbar}>
+                    <button onPointerDown={saveNote}                       style={s.actionBtn(T.success)}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
+                    <button onPointerDown={deleteNote}                     style={s.actionBtn(T.danger)}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
+                    <button onPointerDown={shareText}                      style={s.actionBtn(T.warn)}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
+                    <button onPointerDown={() => setSelectedNote(null)}    style={s.actionBtn(T.textDim)}><span>✕</span></button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── PROFILE TAB ── */}
+        {activeTab === 'profile' && (
+          <div style={s.tabContent}>
+            <div style={s.profileCard}>
+              <div style={s.avatar}>{user.email?.[0]?.toUpperCase()}</div>
+              <p style={s.profileEmail}>{user.email}</p>
+            </div>
+            <div style={s.settingGroup}>
+              <p style={s.settingLabel}>{language === 'tr' ? 'Uygulama Dili' : 'App Language'}</p>
+              <div style={s.langToggle}>
+                <button onPointerDown={() => setLanguage('tr')} style={language === 'tr' ? s.langActive : s.langInactive}>🇹🇷 Türkçe</button>
+                <button onPointerDown={() => setLanguage('en')} style={language === 'en' ? s.langActive : s.langInactive}>🇬🇧 English</button>
+              </div>
+            </div>
+            <button onPointerDown={handleLogout} style={s.logoutBtn}>
+              {language === 'tr' ? 'Çıkış Yap' : 'Sign Out'}
+            </button>
+          </div>
+        )}
+
       </main>
+
       <nav style={s.bottomNav}>
         {[
           { id:'home',    Icon:IconHome,  label: language === 'tr' ? 'Ana Sayfa' : 'Home' },
           { id:'notes',   Icon:IconNotes, label: language === 'tr' ? 'Notlarım'  : 'Notes' },
           { id:'profile', Icon:IconUser,  label: language === 'tr' ? 'Profilim'  : 'Profile' },
         ].map(({ id, Icon, label }) => (
-          <button key={id} onClick={() => setActiveTab(id)} style={s.navItem(activeTab === id)}>
+          <button key={id} onPointerDown={() => setActiveTab(id)} style={s.navItem(activeTab === id)}>
             <Icon />
             <span style={s.navLabel(activeTab === id)}>{label}</span>
           </button>
