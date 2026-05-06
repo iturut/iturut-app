@@ -142,20 +142,20 @@ function Dashboard() {
   };
 
   // FIX: setIsRecording(false) was missing — that's why stop didn't work
-  const stopRecording = () => {
-    clearInterval(timerRef.current);
-    timerRef.current = null;
-    if (recognizerRef.current) {
-      recognizerRef.current.stopContinuousRecognitionAsync(
-        () => { recognizerRef.current?.close(); recognizerRef.current = null; },
-        err => { console.error(err); recognizerRef.current = null; }
-      );
-    }
-    setIsRecording(false);
-    setWarning(false);
-    setStatus('');
-    setTimeLeft(180);
-  };
+ const stopRecording = () => {
+  setIsRecording(false);
+  setWarning(false);
+  setStatus('');
+  setTimeLeft(180);
+  clearInterval(timerRef.current);
+  timerRef.current = null;
+  if (recognizerRef.current) {
+    recognizerRef.current.stopContinuousRecognitionAsync(
+      () => { recognizerRef.current?.close(); recognizerRef.current = null; },
+      err => { console.error(err); recognizerRef.current = null; }
+    );
+  }
+};
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
