@@ -25,6 +25,9 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync ios
+      - name: Decode App Store Connect key
+        script: |
+          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
       - name: Build iOS
         script: |
           xcode-project use-profiles
@@ -36,7 +39,7 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY
+        api_key: /tmp/auth_key.p8
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
