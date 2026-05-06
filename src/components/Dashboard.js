@@ -160,17 +160,17 @@ function Dashboard() {
     }, 1000);
   }, [language, stopRecording]);
 
-   const handleMicButton = useCallback(() => {
-    alert('Butona basıldı. isRecordingRef: ' + isRecordingRef.current + ' | isRecording state: ' + isRecording);
-      if (isRecordingRef.current) {
-     alert('STOP çağrılıyor...');
-     stopRecording();
-     alert('STOP çağrıldı!');
-    } else {
-     alert('START çağrılıyor...');
-     startRecording();
-    }
-  },[startRecording, stopRecording]);
+ const handleMicButton = useCallback(() => {
+  alert('Butona basıldı. isRecordingRef: ' + isRecordingRef.current + ' | isRecording state: ' + isRecording);
+  if (isRecordingRef.current) {
+    alert('STOP çağrılıyor...');
+    stopRecording();
+    alert('STOP çağrıldı!');
+  } else {
+    alert('START çağrılıyor...');
+    startRecording();
+  }
+}, [startRecording, stopRecording, isRecording]);
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
