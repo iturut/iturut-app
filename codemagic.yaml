@@ -36,8 +36,8 @@ workflows:
         script: |
           app-store-connect publish \
             --path $(find build/ios/ipa -name "*.ipa") \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "D2VV8X53U8" \
+            --issuer-id "34fab976-700d-4dbf-a4fb-fb1ed884c32c" \
             --private-key @file:/tmp/auth_key.p8 \
             --testflight
     artifacts:
