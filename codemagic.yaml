@@ -27,7 +27,8 @@ workflows:
           npx cap sync ios
       - name: Build iOS
         script: |
-          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
+          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 -d > /tmp/auth_key.p8
+          cat /tmp/auth_key.p8
           xcode-project use-profiles
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
