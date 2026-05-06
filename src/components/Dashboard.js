@@ -20,7 +20,7 @@ const IconEdit   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18"
 const IconSave   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"/></svg>;
 const IconShare  = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18 16a3 3 0 0 0-2.04.8L8.91 12.7A3.07 3.07 0 0 0 9 12a3.07 3.07 0 0 0-.09-.7l7.05-4.1A3 3 0 1 0 15 5a3.07 3.07 0 0 0 .09.7L8.04 9.8A3 3 0 1 0 8 15a3.07 3.07 0 0 0 .91-.1L15.96 19a3 3 0 1 0 2.04-3z"/></svg>;
 const IconDelete = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>;
-const IconAdd    = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>;
+
 
 function Dashboard() {
   const [user, setUser]                   = useState(null);
@@ -35,8 +35,7 @@ function Dashboard() {
   const [warning, setWarning]             = useState(false);
   const [status, setStatus]               = useState('');
   const [activeTab, setActiveTab]         = useState('home');
-  const [pulse, setPulse]                 = useState(false);
-
+  
   const recognizerRef = useRef(null);
   const timerRef      = useRef(null);
   const navigate      = useNavigate();
@@ -73,7 +72,7 @@ function Dashboard() {
     navigate('/');
   }
 
-  const startRecording = () => {
+ const startRecording = () => {
     if (!AZURE_KEY) { setStatus('⚠️ Azure key bulunamadı'); return; }
     const lang         = language === 'tr' ? 'tr-TR' : 'en-US';
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
@@ -84,7 +83,7 @@ function Dashboard() {
 
     setTranscript(''); setTimeLeft(180); setWarning(false);
     setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
-    setIsRecording(true); setPulse(true);
+    setIsRecording(true);
 
     recognizer.recognizing = (s, e) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizingSpeech)
@@ -99,7 +98,7 @@ function Dashboard() {
     };
     recognizer.startContinuousRecognitionAsync(
       () => {},
-      err => { setStatus('⚠️ ' + err); setIsRecording(false); setPulse(false); }
+      err => { setStatus('⚠️ ' + err); setIsRecording(false); }
     );
 
     let seconds = 180;
@@ -109,7 +108,6 @@ function Dashboard() {
       if (seconds <= 0)  stopRecording();
     }, 1000);
   };
-
   const stopRecording = () => {
     clearInterval(timerRef.current);
     if (recognizerRef.current) {
