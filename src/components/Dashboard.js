@@ -10,7 +10,6 @@ import {
 const AZURE_KEY = process.env.REACT_APP_AZURE_SPEECH_KEY || 'BN3TJVa9xVG9cyY8QSWKLVbik6q4figqJGK6Ixh0GnuzH32XAnKzJQQJ99CEACBsN54XJ3w3AAAYACOGgz17';
 const AZURE_REGION = 'canadacentral';
 
-// ── icons (inline SVG) ──────────────────────────────────────────
 const IconMic    = () => <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 10.5A6.5 6.5 0 0 1 5.5 11.5H4a8 8 0 0 0 7 7.93V22h2v-2.57A8 8 0 0 0 20 11.5h-1.5z"/></svg>;
 const IconStop   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>;
 const IconHome   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
@@ -21,23 +20,38 @@ const IconSave   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18"
 const IconShare  = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18 16a3 3 0 0 0-2.04.8L8.91 12.7A3.07 3.07 0 0 0 9 12a3.07 3.07 0 0 0-.09-.7l7.05-4.1A3 3 0 1 0 15 5a3.07 3.07 0 0 0 .09.7L8.04 9.8A3 3 0 1 0 8 15a3.07 3.07 0 0 0 .91-.1L15.96 19a3 3 0 1 0 2.04-3z"/></svg>;
 const IconDelete = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>;
 
+// Softer dark theme — warm grey, not navy-black
+const T = {
+  bg:       '#16191f',
+  surface:  '#1e2230',
+  surface2: '#252a38',
+  border:   '#2a3045',
+  text:     '#e8eaf0',
+  textMid:  '#8b92a8',
+  textDim:  '#4a5168',
+  accent:   '#3b82f6',
+  accentCy: '#06b6d4',
+  danger:   '#ef4444',
+  success:  '#10b981',
+  warn:     '#f59e0b',
+  purple:   '#6366f1',
+};
 
 function Dashboard() {
-  const [user, setUser]                   = useState(null);
-  const [notes, setNotes]                 = useState([]);
-  const [categories, setCategories]       = useState([]);
-  const [selectedNote, setSelectedNote]   = useState(null);
+  const [user, setUser]                         = useState(null);
+  const [notes, setNotes]                       = useState([]);
+  const [categories, setCategories]             = useState([]);
+  const [selectedNote, setSelectedNote]         = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [isRecording, setIsRecording]     = useState(false);
-  const [language, setLanguage]           = useState(() => navigator.language?.startsWith('tr') ? 'tr' : 'en');
-  const [transcript, setTranscript]       = useState('');
-  const [timeLeft, setTimeLeft]           = useState(180);
-  const [warning, setWarning]             = useState(false);
-  const [status, setStatus]               = useState('');
-  const [activeTab, setActiveTab]         = useState('home');
-  // FIX 2: track keyboard visibility to adjust editor height
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  
+  const [isRecording, setIsRecording]           = useState(false);
+  const [language, setLanguage]                 = useState(() => navigator.language?.startsWith('tr') ? 'tr' : 'en');
+  const [transcript, setTranscript]             = useState('');
+  const [timeLeft, setTimeLeft]                 = useState(180);
+  const [warning, setWarning]                   = useState(false);
+  const [status, setStatus]                     = useState('');
+  const [activeTab, setActiveTab]               = useState('home');
+  const [keyboardHeight, setKeyboardHeight]     = useState(0);
+
   const recognizerRef = useRef(null);
   const timerRef      = useRef(null);
   const navigate      = useNavigate();
@@ -52,20 +66,24 @@ function Dashboard() {
     return () => unsub();
   }, [navigate]);
 
-  // FIX 2: detect keyboard open/close via visualViewport
+  // Track keyboard height precisely using visualViewport
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
     const handler = () => {
-      const isOpen = vv.height < window.innerHeight * 0.75;
-      setKeyboardVisible(isOpen);
+      const diff = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardHeight(diff > 80 ? diff : 0);
     };
     vv.addEventListener('resize', handler);
-    return () => vv.removeEventListener('resize', handler);
+    vv.addEventListener('scroll', handler);
+    return () => {
+      vv.removeEventListener('resize', handler);
+      vv.removeEventListener('scroll', handler);
+    };
   }, []);
 
   async function loadCategories(uid) {
-    const q    = query(collection(db, 'categories'), where('userId', '==', uid));
+    const q = query(collection(db, 'categories'), where('userId', '==', uid));
     const snap = await getDocs(q);
     setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   }
@@ -105,9 +123,8 @@ function Dashboard() {
     };
     recognizer.recognized = (s, e) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
-        const text = e.result.text;
         setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
-        setTranscript(prev => prev ? prev + ' ' + text : text);
+        setTranscript(prev => prev ? prev + ' ' + e.result.text : e.result.text);
       }
     };
     recognizer.startContinuousRecognitionAsync(
@@ -117,31 +134,26 @@ function Dashboard() {
 
     let seconds = 180;
     timerRef.current = setInterval(() => {
-      seconds -= 1; setTimeLeft(seconds);
+      seconds -= 1;
+      setTimeLeft(seconds);
       if (seconds <= 30) setWarning(true);
       if (seconds <= 0)  stopRecording();
     }, 1000);
   };
 
-  // FIX 1: stopRecording now correctly sets isRecording to false
+  // FIX: setIsRecording(false) was missing — that's why stop didn't work
   const stopRecording = () => {
     clearInterval(timerRef.current);
     timerRef.current = null;
     if (recognizerRef.current) {
       recognizerRef.current.stopContinuousRecognitionAsync(
-        () => { 
-          recognizerRef.current?.close(); 
-          recognizerRef.current = null; 
-        },
-        err => {
-          console.error(err);
-          recognizerRef.current = null;
-        }
+        () => { recognizerRef.current?.close(); recognizerRef.current = null; },
+        err => { console.error(err); recognizerRef.current = null; }
       );
     }
-    setIsRecording(false); // FIX 1: this was missing!
-    setWarning(false); 
-    setStatus(''); 
+    setIsRecording(false);
+    setWarning(false);
+    setStatus('');
     setTimeLeft(180);
   };
 
@@ -188,7 +200,7 @@ function Dashboard() {
   const shareText = () => {
     const text = transcript || selectedNote?.content || '';
     if (navigator.share) navigator.share({ text });
-    else { navigator.clipboard.writeText(text); }
+    else navigator.clipboard.writeText(text);
   };
 
   const editWithChatGPT = async () => {
@@ -210,15 +222,13 @@ function Dashboard() {
   };
 
   if (!user) return (
-    <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'#0f172a' }}>
-      <div style={{ color:'#94a3b8', fontSize:'1rem' }}>Loading…</div>
+    <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100dvh', background: T.bg }}>
+      <div style={{ color: T.textMid, fontSize:'1rem' }}>Loading…</div>
     </div>
   );
 
-  // ── TAB CONTENTS ────────────────────────────────────────────────
   const HomeTab = () => (
     <div style={s.tabContent}>
-      {/* speak button */}
       <div style={s.speakWrapper}>
         {isRecording && <div style={s.ripple1}/>}
         {isRecording && <div style={s.ripple2}/>}
@@ -227,62 +237,45 @@ function Dashboard() {
           style={isRecording ? s.stopBtn : s.speakBtn}
         >
           {isRecording ? <IconStop /> : <IconMic />}
-          <span style={s.speakLabel}>{isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}</span>
+          <span style={s.speakLabel}>
+            {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
+          </span>
         </button>
       </div>
 
-      {/* timer */}
       {isRecording && (
         <div style={s.timerRow}>
-          <span style={{ ...s.timer, color: warning ? '#f87171' : '#e2e8f0' }}>{formatTime(timeLeft)}</span>
+          <span style={{ ...s.timer, color: warning ? T.danger : T.text }}>{formatTime(timeLeft)}</span>
           {warning && <span style={s.warningBadge}>{language === 'tr' ? 'Az kaldı!' : 'Almost done!'}</span>}
         </div>
       )}
 
-      {/* status */}
       {status && <p style={s.statusText}>{status}</p>}
 
-      {/* transcript box */}
       <textarea
         value={transcript || ''}
         onChange={e => setTranscript(e.target.value)}
         placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
-        style={{
-          ...s.transcriptBox,
-          color: transcript ? '#e2e8f0' : '#475569',
-          resize: 'none',
-          border: '1px solid #334155',
-          outline: 'none',
-          fontFamily: 'inherit',
-          fontSize: '1rem',
-          lineHeight: '1.75',
-          background: '#1e293b',
-          width: '100%',
-          boxSizing: 'border-box',
-          minHeight: 120,
-        }}
-      /> 
+        style={s.transcriptBox}
+      />
 
-      {/* action bar */}
-      {transcript && (
-        <div style={s.actionBar}>
-          <button onClick={editWithChatGPT} style={s.actionBtn('#6366f1')}>
-            <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
-          </button>
-          <button onClick={createNote} style={s.actionBtn('#10b981')}>
-            <IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span>
-          </button>
-          <button onClick={shareText} style={s.actionBtn('#f59e0b')}>
-            <IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span>
-          </button>
-        </div>
-      )}
+      {/* Action bar always visible — disabled when empty */}
+      <div style={s.actionBar}>
+        <button onClick={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
+          <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
+        </button>
+        <button onClick={createNote} disabled={!transcript} style={s.actionBtn(T.success, !transcript)}>
+          <IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span>
+        </button>
+        <button onClick={shareText} disabled={!transcript} style={s.actionBtn(T.warn, !transcript)}>
+          <IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span>
+        </button>
+      </div>
     </div>
   );
 
   const NotesTab = () => (
     <div style={s.tabContent}>
-      {/* category filter */}
       <div style={s.filterRow}>
         <select
           value={selectedCategory}
@@ -295,10 +288,11 @@ function Dashboard() {
         <button onClick={addCategory} style={s.addCatBtn}>+</button>
       </div>
 
-      {/* notes list */}
       {notes.length === 0 ? (
         <div style={s.emptyState}>
-          <p style={{ color:'#475569', fontSize:'0.9rem' }}>{language === 'tr' ? 'Henüz not yok' : 'No notes yet'}</p>
+          <p style={{ color: T.textDim, fontSize:'0.9rem' }}>
+            {language === 'tr' ? 'Henüz not yok' : 'No notes yet'}
+          </p>
         </div>
       ) : (
         <div style={s.noteList}>
@@ -306,45 +300,46 @@ function Dashboard() {
             <div
               key={note.id}
               onClick={() => setSelectedNote(note)}
-              style={{ ...s.noteCard, borderColor: selectedNote?.id === note.id ? '#3b82f6' : 'transparent' }}
+              style={{ ...s.noteCard, borderColor: selectedNote?.id === note.id ? T.accent : 'transparent' }}
             >
               <h4 style={s.noteCardTitle}>{note.title || (language === 'tr' ? 'Başlıksız' : 'Untitled')}</h4>
               <p style={s.noteCardPreview}>{(note.content || '').substring(0, 80)}…</p>
-              <small style={s.noteCardDate}>{note.updatedAt?.toDate?.()?.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US') || ''}</small>
+              <small style={s.noteCardDate}>
+                {note.updatedAt?.toDate?.()?.toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US') || ''}
+              </small>
             </div>
           ))}
         </div>
       )}
 
-      {/* FIX 2: note editor — keyboard-aware height */}
       {selectedNote && (
         <div style={s.noteEditorOverlay}>
           <div style={{
             ...s.noteEditor,
-            // When keyboard is open, use less height so toolbar stays visible
-            maxHeight: keyboardVisible ? '55vh' : '80vh',
+            marginBottom: keyboardHeight > 0 ? keyboardHeight : 0,
+            maxHeight: keyboardHeight > 0 ? '58vh' : '82vh',
           }}>
             <input
               value={selectedNote.title || ''}
               onChange={e => setSelectedNote(p => ({ ...p, title: e.target.value }))}
               style={s.titleInput}
               placeholder={language === 'tr' ? 'Başlık…' : 'Title…'}
+              autoComplete="off"
             />
             <textarea
               value={selectedNote.content || ''}
               onChange={e => setSelectedNote(p => ({ ...p, content: e.target.value }))}
               style={{
-                ...s.textarea,
-                // FIX 2: shrink textarea when keyboard is open so toolbar stays visible
-                minHeight: keyboardVisible ? 80 : 160,
-                flex: 1,
+                ...s.noteTextarea,
+                minHeight: keyboardHeight > 0 ? 60 : 140,
               }}
+              autoCapitalize="sentences"
             />
             <div style={s.editorToolbar}>
-              <button onClick={saveNote}   style={s.actionBtn('#10b981')}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
-              <button onClick={deleteNote} style={s.actionBtn('#ef4444')}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
-              <button onClick={shareText}  style={s.actionBtn('#f59e0b')}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
-              <button onClick={() => setSelectedNote(null)} style={s.actionBtn('#475569')}><span>✕</span></button>
+              <button onClick={saveNote}                    style={s.actionBtn(T.success)}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
+              <button onClick={deleteNote}                  style={s.actionBtn(T.danger)}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
+              <button onClick={shareText}                   style={s.actionBtn(T.warn)}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
+              <button onClick={() => setSelectedNote(null)} style={s.actionBtn(T.textDim)}><span>✕</span></button>
             </div>
           </div>
         </div>
@@ -358,7 +353,6 @@ function Dashboard() {
         <div style={s.avatar}>{user.email?.[0]?.toUpperCase()}</div>
         <p style={s.profileEmail}>{user.email}</p>
       </div>
-
       <div style={s.settingGroup}>
         <p style={s.settingLabel}>{language === 'tr' ? 'Uygulama Dili' : 'App Language'}</p>
         <div style={s.langToggle}>
@@ -366,31 +360,23 @@ function Dashboard() {
           <button onClick={() => setLanguage('en')} style={language === 'en' ? s.langActive : s.langInactive}>🇬🇧 English</button>
         </div>
       </div>
-
       <button onClick={handleLogout} style={s.logoutBtn}>
         {language === 'tr' ? 'Çıkış Yap' : 'Sign Out'}
       </button>
     </div>
   );
 
-  // ── RENDER ───────────────────────────────────────────────────────
   return (
-    // FIX 3: use 100dvh for correct height on iOS (accounts for browser chrome)
-    <div style={{ ...s.app, height: '100dvh' }}>
-      {/* header */}
+    <div style={s.app}>
       <header style={s.header}>
         <span style={s.headerLogo}>🎙️</span>
         <span style={s.headerTitle}>iTurut</span>
       </header>
-
-      {/* page */}
       <main style={s.main}>
         {activeTab === 'home'    && <HomeTab />}
         {activeTab === 'notes'   && <NotesTab />}
         {activeTab === 'profile' && <ProfileTab />}
       </main>
-
-      {/* bottom nav */}
       <nav style={s.bottomNav}>
         {[
           { id:'home',    Icon:IconHome,  label: language === 'tr' ? 'Ana Sayfa' : 'Home' },
@@ -407,153 +393,138 @@ function Dashboard() {
   );
 }
 
-// ── STYLES ──────────────────────────────────────────────────────────
 const s = {
   app: {
-    display: 'flex', flexDirection: 'column',
-    height: '100dvh', background: '#0f172a', // FIX 3: 100dvh
-    fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-    color: '#e2e8f0', overflow: 'hidden',
+    display:'flex', flexDirection:'column',
+    height:'100dvh', background: T.bg,
+    fontFamily:"'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+    color: T.text, overflow:'hidden',
   },
   header: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '14px 20px',
-    // FIX 3: add safe area top padding for notch
-    paddingTop: 'max(14px, env(safe-area-inset-top))',
-    background: '#0f172a',
-    borderBottom: '1px solid #1e293b',
+    display:'flex', alignItems:'center', gap:10,
+    padding:'14px 20px',
+    paddingTop:'max(14px, env(safe-area-inset-top))',
+    background: T.bg, borderBottom:`1px solid ${T.border}`,
+    flexShrink:0,
   },
-  headerLogo:  { fontSize: '1.4rem' },
-  headerTitle: { fontSize: '1.2rem', fontWeight: 700, letterSpacing: '-0.5px', color: '#f1f5f9' },
-  main:        { flex: 1, overflowY: 'auto', position: 'relative' },
-  tabContent:  { padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20, minHeight: '100%' },
+  headerLogo:  { fontSize:'1.4rem' },
+  headerTitle: { fontSize:'1.2rem', fontWeight:700, letterSpacing:'-0.5px', color: T.text },
+  main:        { flex:1, overflowY:'auto', position:'relative', minHeight:0 },
+  tabContent:  { padding:'20px 18px', display:'flex', flexDirection:'column', gap:16 },
 
-  // speak button
-  speakWrapper: { display:'flex', justifyContent:'center', alignItems:'center', position:'relative', marginTop: 16, marginBottom: 8 },
+  speakWrapper: { display:'flex', justifyContent:'center', alignItems:'center', position:'relative', marginTop:12, marginBottom:4 },
   speakBtn: {
-    width: 160, height: 160, borderRadius: '50%', border: 'none', cursor: 'pointer',
-    background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-    color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-    boxShadow: '0 0 40px rgba(59,130,246,0.4)',
-    transition: 'transform 0.15s', fontSize: '1rem',
+    width:155, height:155, borderRadius:'50%', border:'none', cursor:'pointer',
+    background:`linear-gradient(135deg, ${T.accent}, ${T.accentCy})`,
+    color:'white', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
+    boxShadow:'0 0 36px rgba(59,130,246,0.35)', fontSize:'1rem',
   },
   stopBtn: {
-    width: 160, height: 160, borderRadius: '50%', border: 'none', cursor: 'pointer',
-    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-    color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-    boxShadow: '0 0 40px rgba(239,68,68,0.5)',
-    fontSize: '1rem',
+    width:155, height:155, borderRadius:'50%', border:'none', cursor:'pointer',
+    background:`linear-gradient(135deg, ${T.danger}, #dc2626)`,
+    color:'white', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
+    boxShadow:'0 0 36px rgba(239,68,68,0.45)', fontSize:'1rem',
   },
-  speakLabel: { fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.1em' },
-  ripple1: {
-    position:'absolute', width:180, height:180, borderRadius:'50%',
-    border:'2px solid rgba(59,130,246,0.3)', animation:'ripple 1.5s infinite',
-  },
-  ripple2: {
-    position:'absolute', width:210, height:210, borderRadius:'50%',
-    border:'2px solid rgba(59,130,246,0.15)', animation:'ripple 1.5s infinite 0.5s',
-  },
+  speakLabel: { fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.1em' },
+  ripple1: { position:'absolute', width:178, height:178, borderRadius:'50%', border:'2px solid rgba(59,130,246,0.25)', animation:'ripple 1.5s infinite' },
+  ripple2: { position:'absolute', width:208, height:208, borderRadius:'50%', border:'2px solid rgba(59,130,246,0.12)', animation:'ripple 1.5s infinite 0.5s' },
 
   timerRow:    { display:'flex', alignItems:'center', justifyContent:'center', gap:12 },
   timer:       { fontSize:'2rem', fontWeight:700, fontVariantNumeric:'tabular-nums' },
   warningBadge:{ background:'#7f1d1d', color:'#fca5a5', fontSize:'0.75rem', fontWeight:600, padding:'3px 10px', borderRadius:99 },
-  statusText:  { textAlign:'center', color:'#64748b', fontSize:'0.9rem', margin:0 },
+  statusText:  { textAlign:'center', color: T.textMid, fontSize:'0.88rem', margin:0 },
 
   transcriptBox: {
-    flex:1, background:'#1e293b', borderRadius:16, padding:20,
-    minHeight:120, border:'1px solid #334155',
+    background: T.surface, borderRadius:14, padding:16,
+    minHeight:110, border:`1px solid ${T.border}`,
+    color: T.text, fontSize:'16px', lineHeight:1.75,
+    resize:'none', outline:'none', fontFamily:'inherit',
+    width:'100%', boxSizing:'border-box',
   },
 
-  actionBar: { display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' },
-  actionBtn: color => ({
-    display:'flex', alignItems:'center', gap:6,
-    padding:'10px 18px', borderRadius:12, border:'none', cursor:'pointer',
-    background:color, color:'white', fontWeight:600, fontSize:'0.85rem',
+  actionBar: { display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' },
+  actionBtn: (color, disabled = false) => ({
+    display:'flex', alignItems:'center', gap:5,
+    padding:'10px 16px', borderRadius:12, border:'none',
+    cursor: disabled ? 'default' : 'pointer',
+    background: disabled ? T.surface : color,
+    color: disabled ? T.textDim : 'white',
+    fontWeight:600, fontSize:'0.82rem',
+    opacity: disabled ? 0.5 : 1,
+    transition:'opacity 0.2s',
   }),
 
-  // notes tab
-  filterRow:   { display:'flex', gap:10, alignItems:'center' },
+  filterRow: { display:'flex', gap:10, alignItems:'center' },
   select: {
-    flex:1, padding:'10px 14px', background:'#1e293b', color:'#e2e8f0',
-    border:'1px solid #334155', borderRadius:10, fontSize:'0.9rem',
+    flex:1, padding:'10px 14px', background: T.surface, color: T.text,
+    border:`1px solid ${T.border}`, borderRadius:10, fontSize:'0.9rem',
   },
   addCatBtn: {
     width:42, height:42, borderRadius:10, border:'none', cursor:'pointer',
-    background:'#3b82f6', color:'white', fontSize:'1.3rem', fontWeight:700,
+    background: T.accent, color:'white', fontSize:'1.3rem', fontWeight:700,
   },
-  emptyState:  { display:'flex', justifyContent:'center', alignItems:'center', flex:1 },
-  noteList:    { display:'flex', flexDirection:'column', gap:10 },
+  emptyState: { display:'flex', justifyContent:'center', alignItems:'center', paddingTop:40 },
+  noteList:   { display:'flex', flexDirection:'column', gap:10 },
   noteCard: {
-    background:'#1e293b', borderRadius:14, padding:16,
+    background: T.surface, borderRadius:14, padding:16,
     cursor:'pointer', border:'2px solid transparent', transition:'border-color 0.2s',
   },
-  noteCardTitle:   { margin:'0 0 4px', fontSize:'0.95rem', fontWeight:600, color:'#f1f5f9' },
-  noteCardPreview: { margin:'0 0 6px', fontSize:'0.8rem', color:'#64748b', lineHeight:1.5 },
-  noteCardDate:    { color:'#475569', fontSize:'0.75rem' },
+  noteCardTitle:   { margin:'0 0 4px', fontSize:'0.95rem', fontWeight:600, color: T.text },
+  noteCardPreview: { margin:'0 0 6px', fontSize:'0.8rem', color: T.textMid, lineHeight:1.5 },
+  noteCardDate:    { color: T.textDim, fontSize:'0.75rem' },
 
   noteEditorOverlay: {
-    position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:50,
+    position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:50,
     display:'flex', alignItems:'flex-end',
   },
   noteEditor: {
-    width:'100%', background:'#1e293b', borderRadius:'20px 20px 0 0',
+    width:'100%', background: T.surface, borderRadius:'20px 20px 0 0',
     padding:20,
-    // FIX 3: add bottom safe area so toolbar clears home indicator
-    paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-    display:'flex', flexDirection:'column', gap:12, maxHeight:'80vh',
-    overflowY: 'auto',
+    paddingBottom:'max(20px, env(safe-area-inset-bottom))',
+    display:'flex', flexDirection:'column', gap:12,
+    maxHeight:'82vh', overflowY:'auto',
+    transition:'margin-bottom 0.25s ease, max-height 0.25s ease',
   },
   titleInput: {
-    padding:'12px 14px', background:'#0f172a', color:'#f1f5f9',
-    border:'1px solid #334155', borderRadius:10, fontSize:'1rem', fontWeight:600,
+    padding:'12px 14px', background: T.surface2, color: T.text,
+    border:`1px solid ${T.border}`, borderRadius:10,
+    fontSize:'16px', fontWeight:600, outline:'none',
   },
-  textarea: {
-    padding:'12px 14px', background:'#0f172a', color:'#e2e8f0',
-    border:'1px solid #334155', borderRadius:10, fontSize:'0.9rem',
-    resize:'none', minHeight:160, lineHeight:1.7,
+  noteTextarea: {
+    padding:'12px 14px', background: T.surface2, color: T.text,
+    border:`1px solid ${T.border}`, borderRadius:10,
+    fontSize:'16px', resize:'none', minHeight:140, lineHeight:1.7,
+    outline:'none', fontFamily:'inherit',
   },
   editorToolbar: { display:'flex', gap:8, flexWrap:'wrap' },
 
-  // profile tab
   profileCard: { display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'24px 0' },
   avatar: {
     width:72, height:72, borderRadius:'50%', fontSize:'1.8rem', fontWeight:700,
-    background:'linear-gradient(135deg,#3b82f6,#06b6d4)',
+    background:`linear-gradient(135deg, ${T.accent}, ${T.accentCy})`,
     display:'flex', alignItems:'center', justifyContent:'center', color:'white',
   },
-  profileEmail: { color:'#94a3b8', fontSize:'0.9rem', margin:0 },
-  settingGroup: { background:'#1e293b', borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12 },
-  settingLabel: { margin:0, fontSize:'0.8rem', fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em' },
+  profileEmail: { color: T.textMid, fontSize:'0.9rem', margin:0 },
+  settingGroup: { background: T.surface, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12 },
+  settingLabel: { margin:0, fontSize:'0.78rem', fontWeight:600, color: T.textDim, textTransform:'uppercase', letterSpacing:'0.08em' },
   langToggle:   { display:'flex', gap:8 },
-  langActive: {
-    flex:1, padding:'10px 0', borderRadius:10, border:'none', cursor:'pointer',
-    background:'#3b82f6', color:'white', fontWeight:600, fontSize:'0.9rem',
-  },
-  langInactive: {
-    flex:1, padding:'10px 0', borderRadius:10, border:'1px solid #334155', cursor:'pointer',
-    background:'transparent', color:'#64748b', fontSize:'0.9rem',
-  },
+  langActive:   { flex:1, padding:'10px 0', borderRadius:10, border:'none', cursor:'pointer', background: T.accent, color:'white', fontWeight:600, fontSize:'0.9rem' },
+  langInactive: { flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${T.border}`, cursor:'pointer', background:'transparent', color: T.textMid, fontSize:'0.9rem' },
   logoutBtn: {
     marginTop:8, padding:'14px 0', borderRadius:12, border:'none', cursor:'pointer',
-    background:'#1e293b', color:'#f87171', fontWeight:600, fontSize:'0.95rem',
-    width:'100%',
+    background: T.surface, color: T.danger, fontWeight:600, fontSize:'0.95rem', width:'100%',
   },
 
-  // bottom nav — FIX 3: safe area bottom
   bottomNav: {
-    display:'flex', borderTop:'1px solid #1e293b',
-    background:'#0f172a',
-    paddingBottom: 'env(safe-area-inset-bottom)',
+    display:'flex', borderTop:`1px solid ${T.border}`,
+    background: T.bg, paddingBottom:'env(safe-area-inset-bottom)', flexShrink:0,
   },
   navItem: active => ({
     flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3,
-    padding:'8px 0', border:'none', cursor:'pointer',
-    background:'transparent', color: active ? '#3b82f6' : '#475569',
-    transition:'color 0.2s',
+    padding:'9px 0', border:'none', cursor:'pointer',
+    background:'transparent', color: active ? T.accent : T.textDim, transition:'color 0.2s',
   }),
-  navLabel: active => ({
-    fontSize:'0.68rem', fontWeight: active ? 700 : 400,
-  }),
+  navLabel: active => ({ fontSize:'0.68rem', fontWeight: active ? 700 : 400 }),
 };
 
 export default Dashboard;
