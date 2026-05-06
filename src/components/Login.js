@@ -9,8 +9,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+ const handleLogin = async () => {
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -19,7 +18,6 @@ function Login() {
       setError('Hata: ' + err.code + ' - ' + err.message);
     }   
   };
-
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -52,7 +50,7 @@ function Login() {
             </button>
           </div>
           <div style={{ marginBottom: '16px' }} />
-          <button type="submit" style={styles.button}>Giriş Yap</button>
+         <button type="button" onClick={handleLogin} style={styles.button}>Giriş Yap</button>
         </form>
       </div>
     </div>
