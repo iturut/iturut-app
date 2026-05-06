@@ -35,6 +35,8 @@ function Dashboard() {
   const [warning, setWarning]             = useState(false);
   const [status, setStatus]               = useState('');
   const [activeTab, setActiveTab]         = useState('home');
+  // FIX 2: track keyboard visibility to adjust editor height
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   const recognizerRef = useRef(null);
   const timerRef      = useRef(null);
@@ -49,6 +51,18 @@ function Dashboard() {
     });
     return () => unsub();
   }, [navigate]);
+
+  // FIX 2: detect keyboard open/close via visualViewport
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      const isOpen = vv.height < window.innerHeight * 0.75;
+      setKeyboardVisible(isOpen);
+    };
+    vv.addEventListener('resize', handler);
+    return () => vv.removeEventListener('resize', handler);
+  }, []);
 
   async function loadCategories(uid) {
     const q    = query(collection(db, 'categories'), where('userId', '==', uid));
@@ -72,7 +86,7 @@ function Dashboard() {
     navigate('/');
   }
 
- const startRecording = () => {
+  const startRecording = () => {
     if (!AZURE_KEY) { setStatus('⚠️ Azure key bulunamadı'); return; }
     const lang         = language === 'tr' ? 'tr-TR' : 'en-US';
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
@@ -108,16 +122,27 @@ function Dashboard() {
       if (seconds <= 0)  stopRecording();
     }, 1000);
   };
+
+  // FIX 1: stopRecording now correctly sets isRecording to false
   const stopRecording = () => {
     clearInterval(timerRef.current);
+    timerRef.current = null;
     if (recognizerRef.current) {
       recognizerRef.current.stopContinuousRecognitionAsync(
-        () => { recognizerRef.current?.close(); recognizerRef.current = null; },
-        err => console.error(err)
+        () => { 
+          recognizerRef.current?.close(); 
+          recognizerRef.current = null; 
+        },
+        err => {
+          console.error(err);
+          recognizerRef.current = null;
+        }
       );
     }
-    
-    setWarning(false); setStatus(''); setTimeLeft(180);
+    setIsRecording(false); // FIX 1: this was missing!
+    setWarning(false); 
+    setStatus(''); 
+    setTimeLeft(180);
   };
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -219,24 +244,24 @@ function Dashboard() {
 
       {/* transcript box */}
       <textarea
-  value={transcript || ''}
-  onChange={e => setTranscript(e.target.value)}
-  placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
-  style={{
-    ...s.transcriptBox,
-    color: transcript ? '#e2e8f0' : '#475569',
-    resize: 'none',
-    border: 'none',
-    outline: 'none',
-    fontFamily: 'inherit',
-    fontSize: '1rem',
-    lineHeight: '1.75',
-    background: '#1e293b',
-    width: '100%',
-    boxSizing: 'border-box',
-    minHeight: 120,
-  }}
-/> 
+        value={transcript || ''}
+        onChange={e => setTranscript(e.target.value)}
+        placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
+        style={{
+          ...s.transcriptBox,
+          color: transcript ? '#e2e8f0' : '#475569',
+          resize: 'none',
+          border: '1px solid #334155',
+          outline: 'none',
+          fontFamily: 'inherit',
+          fontSize: '1rem',
+          lineHeight: '1.75',
+          background: '#1e293b',
+          width: '100%',
+          boxSizing: 'border-box',
+          minHeight: 120,
+        }}
+      /> 
 
       {/* action bar */}
       {transcript && (
@@ -291,10 +316,14 @@ function Dashboard() {
         </div>
       )}
 
-      {/* note editor */}
+      {/* FIX 2: note editor — keyboard-aware height */}
       {selectedNote && (
         <div style={s.noteEditorOverlay}>
-          <div style={s.noteEditor}>
+          <div style={{
+            ...s.noteEditor,
+            // When keyboard is open, use less height so toolbar stays visible
+            maxHeight: keyboardVisible ? '55vh' : '80vh',
+          }}>
             <input
               value={selectedNote.title || ''}
               onChange={e => setSelectedNote(p => ({ ...p, title: e.target.value }))}
@@ -304,7 +333,12 @@ function Dashboard() {
             <textarea
               value={selectedNote.content || ''}
               onChange={e => setSelectedNote(p => ({ ...p, content: e.target.value }))}
-              style={s.textarea}
+              style={{
+                ...s.textarea,
+                // FIX 2: shrink textarea when keyboard is open so toolbar stays visible
+                minHeight: keyboardVisible ? 80 : 160,
+                flex: 1,
+              }}
             />
             <div style={s.editorToolbar}>
               <button onClick={saveNote}   style={s.actionBtn('#10b981')}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
@@ -341,7 +375,8 @@ function Dashboard() {
 
   // ── RENDER ───────────────────────────────────────────────────────
   return (
-    <div style={s.app}>
+    // FIX 3: use 100dvh for correct height on iOS (accounts for browser chrome)
+    <div style={{ ...s.app, height: '100dvh' }}>
       {/* header */}
       <header style={s.header}>
         <span style={s.headerLogo}>🎙️</span>
@@ -376,13 +411,16 @@ function Dashboard() {
 const s = {
   app: {
     display: 'flex', flexDirection: 'column',
-    height: '100vh', background: '#0f172a',
+    height: '100dvh', background: '#0f172a', // FIX 3: 100dvh
     fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
     color: '#e2e8f0', overflow: 'hidden',
   },
   header: {
     display: 'flex', alignItems: 'center', gap: 10,
-    padding: '14px 20px', background: '#0f172a',
+    padding: '14px 20px',
+    // FIX 3: add safe area top padding for notch
+    paddingTop: 'max(14px, env(safe-area-inset-top))',
+    background: '#0f172a',
     borderBottom: '1px solid #1e293b',
   },
   headerLogo:  { fontSize: '1.4rem' },
@@ -425,7 +463,6 @@ const s = {
     flex:1, background:'#1e293b', borderRadius:16, padding:20,
     minHeight:120, border:'1px solid #334155',
   },
-  transcriptText: { margin:0, fontSize:'1rem', lineHeight:1.75 },
 
   actionBar: { display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' },
   actionBtn: color => ({
@@ -460,7 +497,11 @@ const s = {
   },
   noteEditor: {
     width:'100%', background:'#1e293b', borderRadius:'20px 20px 0 0',
-    padding:20, display:'flex', flexDirection:'column', gap:12, maxHeight:'80vh',
+    padding:20,
+    // FIX 3: add bottom safe area so toolbar clears home indicator
+    paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
+    display:'flex', flexDirection:'column', gap:12, maxHeight:'80vh',
+    overflowY: 'auto',
   },
   titleInput: {
     padding:'12px 14px', background:'#0f172a', color:'#f1f5f9',
@@ -498,10 +539,11 @@ const s = {
     width:'100%',
   },
 
-  // bottom nav
+  // bottom nav — FIX 3: safe area bottom
   bottomNav: {
     display:'flex', borderTop:'1px solid #1e293b',
-    background:'#0f172a', padding:'8px 0 env(safe-area-inset-bottom)',
+    background:'#0f172a',
+    paddingBottom: 'env(safe-area-inset-bottom)',
   },
   navItem: active => ({
     flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3,
