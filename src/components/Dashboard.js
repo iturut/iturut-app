@@ -218,11 +218,25 @@ function Dashboard() {
       {status && <p style={s.statusText}>{status}</p>}
 
       {/* transcript box */}
-      <div style={s.transcriptBox}>
-        <p style={{ ...s.transcriptText, color: transcript ? '#e2e8f0' : '#475569' }}>
-          {transcript || (language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…')}
-        </p>
-      </div>
+      <textarea
+  value={transcript || ''}
+  onChange={e => setTranscript(e.target.value)}
+  placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
+  style={{
+    ...s.transcriptBox,
+    color: transcript ? '#e2e8f0' : '#475569',
+    resize: 'none',
+    border: 'none',
+    outline: 'none',
+    fontFamily: 'inherit',
+    fontSize: '1rem',
+    lineHeight: '1.75',
+    background: '#1e293b',
+    width: '100%',
+    boxSizing: 'border-box',
+    minHeight: 120,
+  }}
+/> 
 
       {/* action bar */}
       {transcript && (
