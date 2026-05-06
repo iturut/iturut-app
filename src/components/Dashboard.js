@@ -247,12 +247,16 @@ function Dashboard() {
       <div style={s.speakWrapper}>
         {isRecording && <div style={s.ripple1}/>}
         {isRecording && <div style={s.ripple2}/>}
-        <button onClick={handleMicButton} style={isRecording ? s.stopBtn : s.speakBtn}>
-          {isRecording ? <IconStop /> : <IconMic />}
-          <span style={s.speakLabel}>
-            {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
-          </span>
-        </button>
+        <button 
+         onPointerDown={() => alert('POINTER DOWN - isRec: ' + isRecordingRef.current)}
+         onClick={handleMicButton} 
+         style={isRecording ? s.stopBtn : s.speakBtn}
+     >
+  {isRecording ? <IconStop /> : <IconMic />}
+  <span style={s.speakLabel}>
+    {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
+  </span>
+</button>
       </div>
 
       {isRecording && (
