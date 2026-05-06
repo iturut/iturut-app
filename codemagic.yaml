@@ -39,7 +39,7 @@ workflows:
             --path $(find build/ios/ipa -name "*.ipa") \
             --key-id "D2VV8X53U8" \
             --issuer-id "34fab976-700d-4dbf-a4fb-fb1ed884c32c" \
-            --private-key @file:/tmp/auth_key.p8 \
+            --private-key @file:auth_key.p8 \
             --testflight
     artifacts:
       - build/ios/ipa/*.ipa
