@@ -7,7 +7,7 @@ import {
   updateDoc, deleteDoc, doc, serverTimestamp, orderBy
 } from '../firebase';
 
-const AZURE_KEY = process.env.REACT_APP_AZURE_SPEECH_KEY;
+const AZURE_KEY = process.env.REACT_APP_AZURE_SPEECH_KEY || 'BN3TJVa9xVG9cyY8QSWKLVbik6q4figqJGK6Ixh0GnuzH32XAnKzJQQJ99CEACBsN54XJ3w3AAAYACOGgz17';
 const AZURE_REGION = 'canadacentral';
 
 // ── icons (inline SVG) ──────────────────────────────────────────
