@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import {
@@ -20,7 +20,6 @@ const IconSave   = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18"
 const IconShare  = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18 16a3 3 0 0 0-2.04.8L8.91 12.7A3.07 3.07 0 0 0 9 12a3.07 3.07 0 0 0-.09-.7l7.05-4.1A3 3 0 1 0 15 5a3.07 3.07 0 0 0 .09.7L8.04 9.8A3 3 0 1 0 8 15a3.07 3.07 0 0 0 .91-.1L15.96 19a3 3 0 1 0 2.04-3z"/></svg>;
 const IconDelete = () => <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>;
 
-// Softer dark theme — warm grey, not navy-black
 const T = {
   bg:       '#16191f',
   surface:  '#1e2230',
@@ -52,9 +51,13 @@ function Dashboard() {
   const [activeTab, setActiveTab]               = useState('home');
   const [keyboardHeight, setKeyboardHeight]     = useState(0);
 
-  const recognizerRef = useRef(null);
-  const timerRef      = useRef(null);
-  const navigate      = useNavigate();
+  const recognizerRef    = useRef(null);
+  const timerRef         = useRef(null);
+  const isRecordingRef   = useRef(false); // mirrors isRecording for use inside closures
+  const navigate         = useNavigate();
+
+  // keep ref in sync with state
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -66,7 +69,6 @@ function Dashboard() {
     return () => unsub();
   }, [navigate]);
 
-  // Track keyboard height precisely using visualViewport
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -76,10 +78,7 @@ function Dashboard() {
     };
     vv.addEventListener('resize', handler);
     vv.addEventListener('scroll', handler);
-    return () => {
-      vv.removeEventListener('resize', handler);
-      vv.removeEventListener('scroll', handler);
-    };
+    return () => { vv.removeEventListener('resize', handler); vv.removeEventListener('scroll', handler); };
   }, []);
 
   async function loadCategories(uid) {
@@ -104,7 +103,24 @@ function Dashboard() {
     navigate('/');
   }
 
-  const startRecording = () => {
+  // useCallback so the function identity is stable — no stale closure issues
+  const stopRecording = useCallback(() => {
+    setIsRecording(false);
+    isRecordingRef.current = false;
+    setWarning(false);
+    setStatus('');
+    setTimeLeft(180);
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+    if (recognizerRef.current) {
+      recognizerRef.current.stopContinuousRecognitionAsync(
+        () => { recognizerRef.current?.close(); recognizerRef.current = null; },
+        err => { console.error(err); recognizerRef.current = null; }
+      );
+    }
+  }, []);
+
+  const startRecording = useCallback(() => {
     if (!AZURE_KEY) { setStatus('⚠️ Azure key bulunamadı'); return; }
     const lang         = language === 'tr' ? 'tr-TR' : 'en-US';
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
@@ -113,9 +129,12 @@ function Dashboard() {
     const recognizer   = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
     recognizerRef.current = recognizer;
 
-    setTranscript(''); setTimeLeft(180); setWarning(false);
+    setTranscript('');
+    setTimeLeft(180);
+    setWarning(false);
     setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
     setIsRecording(true);
+    isRecordingRef.current = true;
 
     recognizer.recognizing = (s, e) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizingSpeech)
@@ -129,7 +148,7 @@ function Dashboard() {
     };
     recognizer.startContinuousRecognitionAsync(
       () => {},
-      err => { setStatus('⚠️ ' + err); setIsRecording(false); }
+      err => { setStatus('⚠️ ' + err); setIsRecording(false); isRecordingRef.current = false; }
     );
 
     let seconds = 180;
@@ -137,25 +156,17 @@ function Dashboard() {
       seconds -= 1;
       setTimeLeft(seconds);
       if (seconds <= 30) setWarning(true);
-      if (seconds <= 0)  stopRecording();
+      if (seconds <= 0 && isRecordingRef.current) stopRecording();
     }, 1000);
-  };
+  }, [language, stopRecording]);
 
-  // FIX: setIsRecording(false) was missing — that's why stop didn't work
- const stopRecording = () => {
-  setIsRecording(false);
-  setWarning(false);
-  setStatus('');
-  setTimeLeft(180);
-  clearInterval(timerRef.current);
-  timerRef.current = null;
-  if (recognizerRef.current) {
-    recognizerRef.current.stopContinuousRecognitionAsync(
-      () => { recognizerRef.current?.close(); recognizerRef.current = null; },
-      err => { console.error(err); recognizerRef.current = null; }
-    );
-  }
-};
+  const handleMicButton = useCallback(() => {
+    if (isRecordingRef.current) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }, [startRecording, stopRecording]);
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -232,10 +243,7 @@ function Dashboard() {
       <div style={s.speakWrapper}>
         {isRecording && <div style={s.ripple1}/>}
         {isRecording && <div style={s.ripple2}/>}
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          style={isRecording ? s.stopBtn : s.speakBtn}
-        >
+        <button onClick={handleMicButton} style={isRecording ? s.stopBtn : s.speakBtn}>
           {isRecording ? <IconStop /> : <IconMic />}
           <span style={s.speakLabel}>
             {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
@@ -259,7 +267,6 @@ function Dashboard() {
         style={s.transcriptBox}
       />
 
-      {/* Action bar always visible — disabled when empty */}
       <div style={s.actionBar}>
         <button onClick={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
           <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
@@ -329,10 +336,7 @@ function Dashboard() {
             <textarea
               value={selectedNote.content || ''}
               onChange={e => setSelectedNote(p => ({ ...p, content: e.target.value }))}
-              style={{
-                ...s.noteTextarea,
-                minHeight: keyboardHeight > 0 ? 60 : 140,
-              }}
+              style={{ ...s.noteTextarea, minHeight: keyboardHeight > 0 ? 60 : 140 }}
               autoCapitalize="sentences"
             />
             <div style={s.editorToolbar}>
