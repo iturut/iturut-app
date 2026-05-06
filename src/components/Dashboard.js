@@ -158,6 +158,15 @@ function Dashboard() {
     }, 1000);
   }, [language, stopRecording]);
 
+  const handleMicTouch = (e) => {
+    e.preventDefault();
+    if (isRecordingRef.current) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   async function saveNote() {
@@ -243,16 +252,17 @@ function Dashboard() {
             <div style={s.speakWrapper}>
               {isRecording && <div style={s.ripple1}/>}
               {isRecording && <div style={s.ripple2}/>}
-              <div
-  onPointerDown={() => alert('DIV basıldı: ' + isRecordingRef.current)}
-  style={{...isRecording ? s.stopBtn : s.speakBtn, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}
->
-  {isRecording ? <IconStop /> : <IconMic />}
-  <span style={s.speakLabel}>
-    {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
-  </span>
-     </div>
-                
+              <button
+                type="button"
+                onTouchStart={handleMicTouch}
+                onMouseDown={handleMicTouch}
+                style={isRecording ? s.stopBtn : s.speakBtn}
+              >
+                {isRecording ? <IconStop /> : <IconMic />}
+                <span style={s.speakLabel}>
+                  {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
+                </span>
+              </button>
             </div>
 
             {isRecording && (
@@ -345,10 +355,10 @@ function Dashboard() {
                     autoCapitalize="sentences"
                   />
                   <div style={s.editorToolbar}>
-                    <button onPointerDown={saveNote}                       style={s.actionBtn(T.success)}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
-                    <button onPointerDown={deleteNote}                     style={s.actionBtn(T.danger)}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
-                    <button onPointerDown={shareText}                      style={s.actionBtn(T.warn)}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
-                    <button onPointerDown={() => setSelectedNote(null)}    style={s.actionBtn(T.textDim)}><span>✕</span></button>
+                    <button onPointerDown={saveNote}                    style={s.actionBtn(T.success)}><IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span></button>
+                    <button onPointerDown={deleteNote}                  style={s.actionBtn(T.danger)}><IconDelete /><span>{language === 'tr' ? 'Sil' : 'Delete'}</span></button>
+                    <button onPointerDown={shareText}                   style={s.actionBtn(T.warn)}><IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span></button>
+                    <button onPointerDown={() => setSelectedNote(null)} style={s.actionBtn(T.textDim)}><span>✕</span></button>
                   </div>
                 </div>
               </div>
@@ -413,22 +423,37 @@ const s = {
   main:        { flex:1, overflowY:'auto', position:'relative', minHeight:0 },
   tabContent:  { padding:'20px 18px', display:'flex', flexDirection:'column', gap:16 },
 
-  speakWrapper: { display:'flex', justifyContent:'center', alignItems:'center', position:'relative', marginTop:12, marginBottom:4 },
+  speakWrapper: {
+    display:'flex', justifyContent:'center', alignItems:'center',
+    position:'relative', marginTop:12, marginBottom:4,
+  },
   speakBtn: {
+    position:'relative', zIndex:5,
     width:155, height:155, borderRadius:'50%', border:'none', cursor:'pointer',
     background:`linear-gradient(135deg, ${T.accent}, ${T.accentCy})`,
     color:'white', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
     boxShadow:'0 0 36px rgba(59,130,246,0.35)', fontSize:'1rem',
+    touchAction:'manipulation', WebkitTapHighlightColor:'transparent',
   },
   stopBtn: {
+    position:'relative', zIndex:5,
     width:155, height:155, borderRadius:'50%', border:'none', cursor:'pointer',
     background:`linear-gradient(135deg, ${T.danger}, #dc2626)`,
     color:'white', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
     boxShadow:'0 0 36px rgba(239,68,68,0.45)', fontSize:'1rem',
+    touchAction:'manipulation', WebkitTapHighlightColor:'transparent',
   },
   speakLabel: { fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.1em' },
-  ripple1: { position:'absolute', width:178, height:178, borderRadius:'50%', border:'2px solid rgba(59,130,246,0.25)', animation:'ripple 1.5s infinite' },
-  ripple2: { position:'absolute', width:208, height:208, borderRadius:'50%', border:'2px solid rgba(59,130,246,0.12)', animation:'ripple 1.5s infinite 0.5s' },
+  ripple1: {
+    position:'absolute', width:178, height:178, borderRadius:'50%',
+    border:'2px solid rgba(59,130,246,0.25)', animation:'ripple 1.5s infinite',
+    pointerEvents:'none', zIndex:1,
+  },
+  ripple2: {
+    position:'absolute', width:208, height:208, borderRadius:'50%',
+    border:'2px solid rgba(59,130,246,0.12)', animation:'ripple 1.5s infinite 0.5s',
+    pointerEvents:'none', zIndex:1,
+  },
 
   timerRow:    { display:'flex', alignItems:'center', justifyContent:'center', gap:12 },
   timer:       { fontSize:'2rem', fontWeight:700, fontVariantNumeric:'tabular-nums' },
