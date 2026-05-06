@@ -116,7 +116,7 @@ function Dashboard() {
         err => console.error(err)
       );
     }
-    setIsRecording(false); setPulse(false);
+    
     setWarning(false); setStatus(''); setTimeLeft(180);
   };
 
