@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signOut, onAuthStateChanged, signInWithEmailAndPassword, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
+import { getAuth, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from "firebase/firestore";
 import { Capacitor } from "@capacitor/core";
 
@@ -25,4 +25,4 @@ if (Capacitor.isNativePlatform()) {
 
 const db = getFirestore(app);
 
-export { auth, db, signOut, onAuthStateChanged, signInWithEmailAndPassword, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy };
+export { auth, db, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy };
