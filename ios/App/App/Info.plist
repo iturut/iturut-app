@@ -49,5 +49,7 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
     <string>iTurut ses kaydı için mikrofona erişim gerekiyor.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
 </dict>
 </plist>
