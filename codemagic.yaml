@@ -25,21 +25,25 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync ios
-      - name: Decode App Store Connect key
-        script: |
-          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
       - name: Build iOS
         script: |
+          echo $APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY | base64 --decode > /tmp/auth_key.p8
           xcode-project use-profiles
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
+      - name: Publish to TestFlight
+        script: |
+          app-store-connect publish \
+            --path $(find build/ios/ipa -name "*.ipa") \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key @file:/tmp/auth_key.p8 \
+            --testflight
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
-      app_store_connect:
-        api_key: /tmp/auth_key.p8
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
+      email:
+        recipients:
+          - iturutapp@gmail.com
