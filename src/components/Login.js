@@ -8,14 +8,16 @@ function Login() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  
+
 const handleLogin = async () => {
-    alert('Buton çalışıyor - Email: ' + email);
+    alert('Giriş deneniyor...');
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      alert('Başarılı!');
       navigate('/dashboard');
     } catch (err) {
+      alert('HATA: ' + err.code + ' - ' + err.message);
       setError('Hata: ' + err.code + ' - ' + err.message);
     }   
   };
