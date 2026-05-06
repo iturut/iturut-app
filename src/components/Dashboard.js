@@ -243,21 +243,16 @@ function Dashboard() {
             <div style={s.speakWrapper}>
               {isRecording && <div style={s.ripple1}/>}
               {isRecording && <div style={s.ripple2}/>}
-              <button
-                onPointerDown={() => {
-                  if (isRecordingRef.current) {
-                    stopRecording();
-                  } else {
-                    startRecording();
-                  }
-                }}
-                style={isRecording ? s.stopBtn : s.speakBtn}
-              >
-                {isRecording ? <IconStop /> : <IconMic />}
-                <span style={s.speakLabel}>
-                  {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
-                </span>
-              </button>
+              <div
+  onPointerDown={() => alert('DIV basıldı: ' + isRecordingRef.current)}
+  style={{...isRecording ? s.stopBtn : s.speakBtn, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}
+>
+  {isRecording ? <IconStop /> : <IconMic />}
+  <span style={s.speakLabel}>
+    {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
+  </span>
+     </div>
+                
             </div>
 
             {isRecording && (
