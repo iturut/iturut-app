@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signOut, onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, signOut, onAuthStateChanged, signInWithEmailAndPassword, initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from "firebase/firestore";
+import { Capacitor } from "@capacitor/core";
 
 const firebaseConfig = {
   apiKey: "AIzaSyADMe0qyQHtXRcc4_5Ph9_u54lpAZ38zn0",
@@ -12,7 +13,16 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+let auth;
+if (Capacitor.isNativePlatform()) {
+  auth = initializeAuth(app, {
+    persistence: indexedDBLocalPersistence
+  });
+} else {
+  auth = getAuth(app);
+}
+
 const db = getFirestore(app);
 
 export { auth, db, signOut, onAuthStateChanged, signInWithEmailAndPassword, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy };
