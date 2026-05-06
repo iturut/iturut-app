@@ -15,8 +15,8 @@ function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Email veya şifre hatalı.');
-    }
+      setError('Hata: ' + err.code + ' - ' + err.message);
+    }   
   };
 
   return (
