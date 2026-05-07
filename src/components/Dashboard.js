@@ -157,16 +157,7 @@ function Dashboard() {
     }, 1000);
   }, [language, stopRecording]);
 
-  const handleMicTouch = (e) => {
-    e.preventDefault();
-    if (isRecordingRef.current) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   async function saveNote() {
     if (!selectedNote) return;
