@@ -36,13 +36,20 @@ const T = {
   purple:   '#6366f1',
 };
 
-// Auto title from date/time
-function autoTitle(lang) {
+// Smart title: first 5 words of content
+function smartTitle(content) {
+  if (!content) return 'Not';
+  const words = content.trim().split(/\s+/).slice(0, 5).join(' ');
+  return words.length < content.trim().length ? words + '…' : words;
+}
+
+// Timestamp string for inserting into content
+function nowStamp(lang) {
   const now = new Date();
-  const opts = { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' };
-  return lang === 'tr'
-    ? 'Not ' + now.toLocaleString('tr-TR', opts)
-    : 'Note ' + now.toLocaleString('en-US', opts);
+  return now.toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function Dashboard() {
@@ -54,7 +61,7 @@ function Dashboard() {
   const [isRecording, setIsRecording]           = useState(false);
   const [language, setLanguage]                 = useState(() => navigator.language?.startsWith('tr') ? 'tr' : 'en');
   const [transcript, setTranscript]             = useState('');
-  const [interimText, setInterimText]           = useState(''); // live partial text
+  const [interimText, setInterimText]           = useState('');
   const [timeLeft, setTimeLeft]                 = useState(180);
   const [warning, setWarning]                   = useState(false);
   const [status, setStatus]                     = useState('');
@@ -64,7 +71,7 @@ function Dashboard() {
   const recognizerRef  = useRef(null);
   const timerRef       = useRef(null);
   const isRecordingRef = useRef(false);
-  const transcriptRef  = useRef(''); // mirrors transcript for use inside closures
+  const transcriptRef  = useRef('');
   const navigate       = useNavigate();
 
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
@@ -114,6 +121,7 @@ function Dashboard() {
     navigate('/');
   }
 
+  // ── SPEAK BUTTON — DO NOT TOUCH ─────────────────────────────
   const stopRecording = useCallback(() => {
     setIsRecording(false);
     isRecordingRef.current = false;
@@ -134,7 +142,6 @@ function Dashboard() {
   const startRecording = useCallback(() => {
     if (!AZURE_KEY) { setStatus('⚠️ Azure key bulunamadı'); return; }
 
-    // FIX: warn if unsaved transcript exists
     if (transcriptRef.current.trim()) {
       const msg = language === 'tr'
         ? 'Kaydedilmemiş bir notunuz var. Yine de yeni kayda başlayacak mısınız?'
@@ -158,14 +165,12 @@ function Dashboard() {
     setIsRecording(true);
     isRecordingRef.current = true;
 
-    // FIX: show interim text live in transcript area
     recognizer.recognizing = (s, e) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizingSpeech) {
         setInterimText(e.result.text);
       }
     };
 
-    // FIX: finalized text appended immediately
     recognizer.recognized = (s, e) => {
       if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
         const text = e.result.text;
@@ -191,6 +196,7 @@ function Dashboard() {
       if (seconds <= 0 && isRecordingRef.current) stopRecording();
     }, 1000);
   }, [language, stopRecording]);
+  // ── END SPEAK BUTTON ─────────────────────────────────────────
 
   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -209,23 +215,40 @@ function Dashboard() {
     loadNotes(user.uid, selectedCategory);
   }
 
-  // FIX: no prompt, auto title from date/time
+  // Save from home tab — smart title, timestamp in content
   async function createNote() {
     if (!transcript) return;
-    const title = autoTitle(language);
+    const title   = smartTitle(transcript);
+    const stamp   = nowStamp(language);
+    const content = `[${stamp}]\n${transcript}`;
     const ref = await addDoc(collection(db, 'notes'), {
-      title,
-      content: transcript,
+      title, content,
       userId: user.uid,
       categoryId: selectedCategory === 'all' ? '' : selectedCategory,
       categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     loadNotes(user.uid, selectedCategory);
-    setSelectedNote({ id: ref.id, title, content: transcript });
+    setSelectedNote({ id: ref.id, title, content });
     setTranscript('');
     transcriptRef.current = '';
     setActiveTab('notes');
+  }
+
+  // New blank note — open editor directly, no category prompt
+  async function createBlankNote() {
+    const stamp   = nowStamp(language);
+    const title   = language === 'tr' ? 'Yeni Not' : 'New Note';
+    const content = '';
+    const ref = await addDoc(collection(db, 'notes'), {
+      title, content,
+      userId: user.uid,
+      categoryId: '',
+      categoryName: '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    await loadNotes(user.uid, selectedCategory);
+    setSelectedNote({ id: ref.id, title, content });
   }
 
   async function addCategory() {
@@ -266,13 +289,12 @@ function Dashboard() {
     </div>
   );
 
-  // Combined display: finalized + interim
   const displayText = transcript + (interimText ? (transcript ? ' ' : '') + interimText : '');
 
   return (
     <div style={s.app}>
+      {/* FIX: header now uses safe-area-inset-top properly, smaller height */}
       <header style={s.header}>
-        <span style={s.headerLogo}>🎙️</span>
         <span style={s.headerTitle}>iTurut</span>
       </header>
 
@@ -284,6 +306,7 @@ function Dashboard() {
             <div style={s.speakWrapper}>
               {isRecording && <div style={s.ripple1}/>}
               {isRecording && <div style={s.ripple2}/>}
+              {/* ── SPEAK BUTTON — DO NOT MODIFY ── */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -313,7 +336,6 @@ function Dashboard() {
 
             {status && <p style={s.statusText}>{status}</p>}
 
-            {/* FIX: show live combined text */}
             <textarea
               value={displayText}
               onChange={e => {
@@ -353,7 +375,8 @@ function Dashboard() {
                 <option value="all">{language === 'tr' ? 'Tüm Notlar' : 'All Notes'}</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <button onPointerDown={addCategory} style={s.addCatBtn}>+</button>
+              {/* FIX: + opens blank note editor directly */}
+              <button onClick={createBlankNote} style={s.addCatBtn}>+</button>
             </div>
 
             {notes.length === 0 ? (
@@ -365,9 +388,10 @@ function Dashboard() {
             ) : (
               <div style={s.noteList}>
                 {notes.map(note => (
+                  // FIX: onClick instead of onPointerDown — less sensitive while scrolling
                   <div
                     key={note.id}
-                    onPointerDown={() => setSelectedNote(note)}
+                    onClick={() => setSelectedNote(note)}
                     style={{ ...s.noteCard, borderColor: selectedNote?.id === note.id ? T.accent : 'transparent' }}
                   >
                     <h4 style={s.noteCardTitle}>{note.title || (language === 'tr' ? 'Başlıksız' : 'Untitled')}</h4>
@@ -457,21 +481,25 @@ const s = {
     fontFamily:"'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
     color: T.text, overflow:'hidden',
   },
+  // FIX: compact header, safe-area only for top padding, no logo emoji
   header: {
-    display:'flex', alignItems:'center', gap:10,
-    padding:'14px 20px',
-    paddingTop:'max(14px, env(safe-area-inset-top))',
-    background: T.bg, borderBottom:`1px solid ${T.border}`,
+    display:'flex', alignItems:'center',
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 'env(safe-area-inset-top)',
+    paddingBottom: 10,
+    background: T.bg,
+    borderBottom:`1px solid ${T.border}`,
     flexShrink:0,
+    minHeight: 44,
   },
-  headerLogo:  { fontSize:'1.4rem' },
-  headerTitle: { fontSize:'1.2rem', fontWeight:700, letterSpacing:'-0.5px', color: T.text },
+  headerTitle: { fontSize:'1rem', fontWeight:700, letterSpacing:'-0.3px', color: T.textMid },
   main:        { flex:1, overflowY:'auto', position:'relative', minHeight:0 },
-  tabContent:  { padding:'20px 18px', display:'flex', flexDirection:'column', gap:16 },
+  tabContent:  { padding:'16px 18px', display:'flex', flexDirection:'column', gap:14 },
 
   speakWrapper: {
     display:'flex', justifyContent:'center', alignItems:'center',
-    position:'relative', marginTop:12, marginBottom:4,
+    position:'relative', marginTop:8, marginBottom:4,
   },
   speakBtn: {
     position:'relative', zIndex:5,
