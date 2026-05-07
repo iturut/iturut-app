@@ -36,14 +36,12 @@ const T = {
   purple:   '#6366f1',
 };
 
-// Smart title: first 5 words of content
 function smartTitle(content) {
   if (!content) return 'Not';
   const words = content.trim().split(/\s+/).slice(0, 5).join(' ');
   return words.length < content.trim().length ? words + '…' : words;
 }
 
-// Timestamp string for inserting into content
 function nowStamp(lang) {
   const now = new Date();
   return now.toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US', {
@@ -72,10 +70,18 @@ function Dashboard() {
   const timerRef       = useRef(null);
   const isRecordingRef = useRef(false);
   const transcriptRef  = useRef('');
+  const textareaRef    = useRef(null); // for auto-scroll
   const navigate       = useNavigate();
 
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+
+  // Auto-scroll textarea to bottom when transcript or interimText changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [transcript, interimText]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -215,40 +221,39 @@ function Dashboard() {
     loadNotes(user.uid, selectedCategory);
   }
 
-  // Save from home tab — smart title, timestamp in content
-    async function createNote() {
-      if (!transcript) return;
-      const title   = smartTitle(transcript);
-      const stamp   = nowStamp(language);
-      const content = `[${stamp}]\n${transcript}`;
-      const ref = await addDoc(collection(db, 'notes'), {
-        title, content,
-        userId: user.uid,
-        categoryId: selectedCategory === 'all' ? '' : selectedCategory,
-        categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-      });
-      loadNotes(user.uid, selectedCategory);
-      setSelectedNote({ id: ref.id, title, content });
-      setTranscript('');
-      transcriptRef.current = '';
-      setActiveTab('notes');
-    }
+  async function createNote() {
+    if (!transcript) return;
+    const title   = smartTitle(transcript);
+    const stamp   = nowStamp(language);
+    const content = `[${stamp}]\n${transcript}`;
+    const ref = await addDoc(collection(db, 'notes'), {
+      title, content,
+      userId: user.uid,
+      categoryId: selectedCategory === 'all' ? '' : selectedCategory,
+      categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    loadNotes(user.uid, selectedCategory);
+    setSelectedNote({ id: ref.id, title, content });
+    setTranscript('');
+    transcriptRef.current = '';
+    setActiveTab('notes');
+  }
 
-    async function createBlankNote() {
-      const title   = language === 'tr' ? 'Yeni Not' : 'New Note';
-      const content = '';
-      const ref = await addDoc(collection(db, 'notes'), {
-        title, content,
-        userId: user.uid,
-        categoryId: '',
-        categoryName: '',
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-      });
-      await loadNotes(user.uid, selectedCategory);
-      setSelectedNote({ id: ref.id, title, content });
-    }
-  
+  async function createBlankNote() {
+    const title   = language === 'tr' ? 'Yeni Not' : 'New Note';
+    const content = '';
+    const ref = await addDoc(collection(db, 'notes'), {
+      title, content,
+      userId: user.uid,
+      categoryId: '',
+      categoryName: '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    await loadNotes(user.uid, selectedCategory);
+    setSelectedNote({ id: ref.id, title, content });
+  }
+
   const shareText = () => {
     const text = transcript || selectedNote?.content || '';
     if (navigator.share) navigator.share({ text });
@@ -284,7 +289,6 @@ function Dashboard() {
 
   return (
     <div style={s.app}>
-      {/* FIX: header now uses safe-area-inset-top properly, smaller height */}
       <header style={s.header}>
         <span style={s.headerTitle}>iTurut</span>
       </header>
@@ -327,7 +331,9 @@ function Dashboard() {
 
             {status && <p style={s.statusText}>{status}</p>}
 
+            {/* textarea with ref for auto-scroll */}
             <textarea
+              ref={textareaRef}
               value={displayText}
               onChange={e => {
                 setTranscript(e.target.value);
@@ -366,7 +372,6 @@ function Dashboard() {
                 <option value="all">{language === 'tr' ? 'Tüm Notlar' : 'All Notes'}</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              {/* FIX: + opens blank note editor directly */}
               <button onClick={createBlankNote} style={s.addCatBtn}>+</button>
             </div>
 
@@ -379,7 +384,6 @@ function Dashboard() {
             ) : (
               <div style={s.noteList}>
                 {notes.map(note => (
-                  // FIX: onClick instead of onPointerDown — less sensitive while scrolling
                   <div
                     key={note.id}
                     onClick={() => setSelectedNote(note)}
@@ -472,17 +476,14 @@ const s = {
     fontFamily:"'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
     color: T.text, overflow:'hidden',
   },
-  // FIX: compact header, safe-area only for top padding, no logo emoji
   header: {
     display:'flex', alignItems:'center',
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingLeft: 20, paddingRight: 20,
     paddingTop: 'env(safe-area-inset-top)',
     paddingBottom: 10,
     background: T.bg,
     borderBottom:`1px solid ${T.border}`,
-    flexShrink:0,
-    minHeight: 44,
+    flexShrink:0, minHeight: 44,
   },
   headerTitle: { fontSize:'1rem', fontWeight:700, letterSpacing:'-0.3px', color: T.textMid },
   main:        { flex:1, overflowY:'auto', position:'relative', minHeight:0 },
@@ -490,7 +491,9 @@ const s = {
 
   speakWrapper: {
     display:'flex', justifyContent:'center', alignItems:'center',
-    position:'relative', marginTop:8, marginBottom:4,
+    position:'relative',
+    marginTop: 32,   // FIX: more space from top so button is lower
+    marginBottom: 8,
   },
   speakBtn: {
     position:'relative', zIndex:5,
@@ -531,6 +534,7 @@ const s = {
     color: T.text, fontSize:'16px', lineHeight:1.75,
     resize:'none', outline:'none', fontFamily:'inherit',
     width:'100%', boxSizing:'border-box',
+    overflowY: 'auto', // FIX: ensure scroll works
   },
 
   actionBar: { display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' },
