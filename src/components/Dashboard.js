@@ -216,48 +216,39 @@ function Dashboard() {
   }
 
   // Save from home tab — smart title, timestamp in content
-  async function createNote() {
-    if (!transcript) return;
-    const title   = smartTitle(transcript);
-    const stamp   = nowStamp(language);
-    const content = `[${stamp}]\n${transcript}`;
-    const ref = await addDoc(collection(db, 'notes'), {
-      title, content,
-      userId: user.uid,
-      categoryId: selectedCategory === 'all' ? '' : selectedCategory,
-      categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-    });
-    loadNotes(user.uid, selectedCategory);
-    setSelectedNote({ id: ref.id, title, content });
-    setTranscript('');
-    transcriptRef.current = '';
-    setActiveTab('notes');
-  }
+    async function createNote() {
+      if (!transcript) return;
+      const title   = smartTitle(transcript);
+      const stamp   = nowStamp(language);
+      const content = `[${stamp}]\n${transcript}`;
+      const ref = await addDoc(collection(db, 'notes'), {
+        title, content,
+        userId: user.uid,
+        categoryId: selectedCategory === 'all' ? '' : selectedCategory,
+        categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+      loadNotes(user.uid, selectedCategory);
+      setSelectedNote({ id: ref.id, title, content });
+      setTranscript('');
+      transcriptRef.current = '';
+      setActiveTab('notes');
+    }
 
-  // New blank note — open editor directly, no category prompt
-  async function createBlankNote() {
-    const stamp   = nowStamp(language);
-    const title   = language === 'tr' ? 'Yeni Not' : 'New Note';
-    const content = '';
-    const ref = await addDoc(collection(db, 'notes'), {
-      title, content,
-      userId: user.uid,
-      categoryId: '',
-      categoryName: '',
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-    });
-    await loadNotes(user.uid, selectedCategory);
-    setSelectedNote({ id: ref.id, title, content });
-  }
-
-  async function addCategory() {
-    const name = prompt(language === 'tr' ? 'Kategori adı:' : 'Category name:');
-    if (!name) return;
-    await addDoc(collection(db, 'categories'), { name, userId: user.uid, createdAt: serverTimestamp() });
-    loadCategories(user.uid);
-  }
-
+    async function createBlankNote() {
+      const title   = language === 'tr' ? 'Yeni Not' : 'New Note';
+      const content = '';
+      const ref = await addDoc(collection(db, 'notes'), {
+        title, content,
+        userId: user.uid,
+        categoryId: '',
+        categoryName: '',
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+      await loadNotes(user.uid, selectedCategory);
+      setSelectedNote({ id: ref.id, title, content });
+    }
+  
   const shareText = () => {
     const text = transcript || selectedNote?.content || '';
     if (navigator.share) navigator.share({ text });
