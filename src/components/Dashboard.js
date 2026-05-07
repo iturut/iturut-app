@@ -36,6 +36,15 @@ const T = {
   purple:   '#6366f1',
 };
 
+// Auto title from date/time
+function autoTitle(lang) {
+  const now = new Date();
+  const opts = { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' };
+  return lang === 'tr'
+    ? 'Not ' + now.toLocaleString('tr-TR', opts)
+    : 'Note ' + now.toLocaleString('en-US', opts);
+}
+
 function Dashboard() {
   const [user, setUser]                         = useState(null);
   const [notes, setNotes]                       = useState([]);
@@ -45,6 +54,7 @@ function Dashboard() {
   const [isRecording, setIsRecording]           = useState(false);
   const [language, setLanguage]                 = useState(() => navigator.language?.startsWith('tr') ? 'tr' : 'en');
   const [transcript, setTranscript]             = useState('');
+  const [interimText, setInterimText]           = useState(''); // live partial text
   const [timeLeft, setTimeLeft]                 = useState(180);
   const [warning, setWarning]                   = useState(false);
   const [status, setStatus]                     = useState('');
@@ -54,9 +64,11 @@ function Dashboard() {
   const recognizerRef  = useRef(null);
   const timerRef       = useRef(null);
   const isRecordingRef = useRef(false);
+  const transcriptRef  = useRef(''); // mirrors transcript for use inside closures
   const navigate       = useNavigate();
 
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -105,6 +117,7 @@ function Dashboard() {
   const stopRecording = useCallback(() => {
     setIsRecording(false);
     isRecordingRef.current = false;
+    setInterimText('');
     setWarning(false);
     setStatus('');
     setTimeLeft(180);
@@ -120,29 +133,51 @@ function Dashboard() {
 
   const startRecording = useCallback(() => {
     if (!AZURE_KEY) { setStatus('⚠️ Azure key bulunamadı'); return; }
+
+    // FIX: warn if unsaved transcript exists
+    if (transcriptRef.current.trim()) {
+      const msg = language === 'tr'
+        ? 'Kaydedilmemiş bir notunuz var. Yine de yeni kayda başlayacak mısınız?'
+        : 'You have an unsaved note. Start a new recording anyway?';
+      if (!window.confirm(msg)) return;
+    }
+
     const lang         = language === 'tr' ? 'tr-TR' : 'en-US';
     const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(AZURE_KEY, AZURE_REGION);
     speechConfig.speechRecognitionLanguage = lang;
     const audioConfig  = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
     const recognizer   = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
     recognizerRef.current = recognizer;
+
     setTranscript('');
+    transcriptRef.current = '';
+    setInterimText('');
     setTimeLeft(180);
     setWarning(false);
     setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
     setIsRecording(true);
     isRecordingRef.current = true;
 
+    // FIX: show interim text live in transcript area
     recognizer.recognizing = (s, e) => {
-      if (e.result.reason === SpeechSDK.ResultReason.RecognizingSpeech)
-        setStatus('💬 ' + e.result.text);
-    };
-    recognizer.recognized = (s, e) => {
-      if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
-        setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
-        setTranscript(prev => prev ? prev + ' ' + e.result.text : e.result.text);
+      if (e.result.reason === SpeechSDK.ResultReason.RecognizingSpeech) {
+        setInterimText(e.result.text);
       }
     };
+
+    // FIX: finalized text appended immediately
+    recognizer.recognized = (s, e) => {
+      if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+        const text = e.result.text;
+        setInterimText('');
+        setTranscript(prev => {
+          const next = prev ? prev + ' ' + text : text;
+          transcriptRef.current = next;
+          return next;
+        });
+      }
+    };
+
     recognizer.startContinuousRecognitionAsync(
       () => {},
       err => { setStatus('⚠️ ' + err); setIsRecording(false); isRecordingRef.current = false; }
@@ -157,7 +192,7 @@ function Dashboard() {
     }, 1000);
   }, [language, stopRecording]);
 
-   const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const formatTime = s => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   async function saveNote() {
     if (!selectedNote) return;
@@ -174,19 +209,22 @@ function Dashboard() {
     loadNotes(user.uid, selectedCategory);
   }
 
+  // FIX: no prompt, auto title from date/time
   async function createNote() {
-    const title = prompt(language === 'tr' ? 'Not başlığı:' : 'Note title:');
-    if (!title) return;
+    if (!transcript) return;
+    const title = autoTitle(language);
     const ref = await addDoc(collection(db, 'notes'), {
-      title, content: transcript || '',
+      title,
+      content: transcript,
       userId: user.uid,
       categoryId: selectedCategory === 'all' ? '' : selectedCategory,
       categoryName: selectedCategory === 'all' ? '' : categories.find(c => c.id === selectedCategory)?.name || '',
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     loadNotes(user.uid, selectedCategory);
-    setSelectedNote({ id: ref.id, title, content: transcript || '' });
+    setSelectedNote({ id: ref.id, title, content: transcript });
     setTranscript('');
+    transcriptRef.current = '';
     setActiveTab('notes');
   }
 
@@ -215,6 +253,7 @@ function Dashboard() {
       const data = await res.json();
       if (data.result) {
         setTranscript(data.result);
+        transcriptRef.current = data.result;
         if (selectedNote) setSelectedNote(prev => ({ ...prev, content: data.result }));
       }
     } catch { setStatus('⚠️ Error'); }
@@ -226,6 +265,9 @@ function Dashboard() {
       <div style={{ color: T.textMid, fontSize:'1rem' }}>Loading…</div>
     </div>
   );
+
+  // Combined display: finalized + interim
+  const displayText = transcript + (interimText ? (transcript ? ' ' : '') + interimText : '');
 
   return (
     <div style={s.app}>
@@ -254,7 +296,7 @@ function Dashboard() {
                   }
                 }}
                 style={isRecording ? s.stopBtn : s.speakBtn}
->
+              >
                 {isRecording ? <IconStop /> : <IconMic />}
                 <span style={s.speakLabel}>
                   {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
@@ -271,21 +313,28 @@ function Dashboard() {
 
             {status && <p style={s.statusText}>{status}</p>}
 
+            {/* FIX: show live combined text */}
             <textarea
-              value={transcript || ''}
-              onChange={e => setTranscript(e.target.value)}
+              value={displayText}
+              onChange={e => {
+                setTranscript(e.target.value);
+                transcriptRef.current = e.target.value;
+              }}
               placeholder={language === 'tr' ? 'Konuşmak için butona bas…' : 'Tap the button to speak…'}
-              style={s.transcriptBox}
+              style={{
+                ...s.transcriptBox,
+                color: interimText && !transcript ? T.textMid : T.text,
+              }}
             />
 
             <div style={s.actionBar}>
-              <button onPointerDown={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
+              <button onClick={editWithChatGPT} disabled={!transcript} style={s.actionBtn(T.purple, !transcript)}>
                 <IconEdit /><span>{language === 'tr' ? 'Düzenle' : 'Edit'}</span>
               </button>
-              <button onPointerDown={createNote} disabled={!transcript} style={s.actionBtn(T.success, !transcript)}>
+              <button onClick={createNote} disabled={!transcript} style={s.actionBtn(T.success, !transcript)}>
                 <IconSave /><span>{language === 'tr' ? 'Kaydet' : 'Save'}</span>
               </button>
-              <button onPointerDown={shareText} disabled={!transcript} style={s.actionBtn(T.warn, !transcript)}>
+              <button onClick={shareText} disabled={!transcript} style={s.actionBtn(T.warn, !transcript)}>
                 <IconShare /><span>{language === 'tr' ? 'Paylaş' : 'Share'}</span>
               </button>
             </div>
