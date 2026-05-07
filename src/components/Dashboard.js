@@ -564,9 +564,9 @@ const s = {
     background: T.surface, borderRadius:14, padding:16,
     cursor:'pointer', border:'2px solid transparent', transition:'border-color 0.2s',
   },
-  noteCardTitle:   { margin:'0 0 4px', fontSize:'0.95rem', fontWeight:600, color: T.text },
-  noteCardPreview: { margin:'0 0 6px', fontSize:'0.8rem', color: T.textMid, lineHeight:1.5 },
-  noteCardDate:    { color: T.textDim, fontSize:'0.75rem' },
+  noteCardTitle:   { margin:'0 0 4px', fontSize:'1.05rem', fontWeight:600, color: T.text },
+  noteCardPreview: { margin:'0 0 6px', fontSize:'0.88rem', color: T.textMid, lineHeight:1.5 },
+  noteCardDate:    { color: T.textDim, fontSize:'0.8rem' },
 
   noteEditorOverlay: {
     position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:50,
