@@ -127,7 +127,6 @@ function Dashboard() {
     const recognizer   = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
     recognizerRef.current = recognizer;
 
-    setTranscript('');
     setTimeLeft(180);
     setWarning(false);
     setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
@@ -254,10 +253,17 @@ function Dashboard() {
               {isRecording && <div style={s.ripple2}/>}
               <button
                 type="button"
-                onTouchStart={handleMicTouch}
-                onMouseDown={handleMicTouch}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (isRecordingRef.current) {
+                    stopRecording();
+                  } else {
+                    startRecording();
+                  }
+                }}
                 style={isRecording ? s.stopBtn : s.speakBtn}
-              >
+>
                 {isRecording ? <IconStop /> : <IconMic />}
                 <span style={s.speakLabel}>
                   {isRecording ? (language === 'tr' ? 'DURDUR' : 'STOP') : (language === 'tr' ? 'KONUŞ' : 'SPEAK')}
