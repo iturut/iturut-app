@@ -126,7 +126,7 @@ function Dashboard() {
     const audioConfig  = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
     const recognizer   = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
     recognizerRef.current = recognizer;
-
+    setTranscript('');
     setTimeLeft(180);
     setWarning(false);
     setStatus(language === 'tr' ? '🎙️ Dinleniyor...' : '🎙️ Listening...');
