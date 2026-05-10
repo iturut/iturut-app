@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
 } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,7 +19,7 @@ const T = {
 };
 
 function Login() {
-  const [mode, setMode]               = useState('login'); // 'login' | 'signup'
+  const [mode, setMode]               = useState('login');
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [confirmPass, setConfirmPass] = useState('');
@@ -26,6 +27,14 @@ function Login() {
   const [error, setError]             = useState('');
   const [loading, setLoading]         = useState(false);
   const navigate = useNavigate();
+
+  // If user already logged in, go straight to dashboard
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) navigate('/dashboard', { replace: true });
+    });
+    return () => unsub();
+  }, [navigate]);
 
   const handleSubmit = async () => {
     setError('');
@@ -43,12 +52,12 @@ function Login() {
       navigate('/dashboard');
     } catch (err) {
       const msgs = {
-        'auth/user-not-found':    'Bu email ile kayıtlı kullanıcı bulunamadı.',
-        'auth/wrong-password':    'Şifre hatalı.',
+        'auth/user-not-found':       'Bu email ile kayıtlı kullanıcı bulunamadı.',
+        'auth/wrong-password':       'Şifre hatalı.',
         'auth/email-already-in-use': 'Bu email zaten kullanılıyor.',
-        'auth/invalid-email':     'Geçersiz email adresi.',
-        'auth/too-many-requests': 'Çok fazla deneme. Lütfen bekleyin.',
-        'auth/invalid-credential': 'Email veya şifre hatalı.',
+        'auth/invalid-email':        'Geçersiz email adresi.',
+        'auth/too-many-requests':    'Çok fazla deneme. Lütfen bekleyin.',
+        'auth/invalid-credential':   'Email veya şifre hatalı.',
       };
       setError(msgs[err.code] || err.message);
     } finally {
@@ -66,7 +75,6 @@ function Login() {
   return (
     <div style={s.container}>
       <div style={s.card}>
-        {/* Logo */}
         <div style={s.logoRow}>
           <span style={s.logoIcon}>🎙️</span>
           <span style={s.logoText}>iTurut</span>
@@ -78,7 +86,6 @@ function Login() {
 
         {error && <div style={s.errorBox}>{error}</div>}
 
-        {/* Email */}
         <input
           type="email"
           placeholder="Email"
@@ -89,7 +96,6 @@ function Login() {
           autoCapitalize="none"
         />
 
-        {/* Password */}
         <div style={{ position:'relative', marginBottom:12 }}>
           <input
             type={showPass ? 'text' : 'password'}
@@ -108,7 +114,6 @@ function Login() {
           </button>
         </div>
 
-        {/* Confirm password — only for signup */}
         {mode === 'signup' && (
           <input
             type={showPass ? 'text' : 'password'}
@@ -120,7 +125,6 @@ function Login() {
           />
         )}
 
-        {/* Submit */}
         <button
           onClick={handleSubmit}
           disabled={loading}
@@ -131,7 +135,6 @@ function Login() {
             : mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
         </button>
 
-        {/* Switch mode */}
         <div style={s.switchRow}>
           <span style={{ color: T.textMid, fontSize:'0.88rem' }}>
             {mode === 'login' ? 'Hesabın yok mu?' : 'Zaten hesabın var mı?'}
