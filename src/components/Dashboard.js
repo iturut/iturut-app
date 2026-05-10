@@ -221,12 +221,12 @@ function Dashboard() {
     loadNotes(user.uid, selectedCategory);
   }
 
-  async function createNote() {
+ async function createNote() {
     if (!transcript) return;
     const title   = smartTitle(transcript);
     const stamp   = nowStamp(language);
     const content = `[${stamp}]\n${transcript}`;
-    const ref = await addDoc(collection(db, 'notes'), {
+    await addDoc(collection(db, 'notes'), {
       title, content,
       userId: user.uid,
       categoryId: selectedCategory === 'all' ? '' : selectedCategory,
@@ -234,7 +234,6 @@ function Dashboard() {
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     loadNotes(user.uid, selectedCategory);
-    setSelectedNote({ id: ref.id, title, content });
     setTranscript('');
     transcriptRef.current = '';
     setActiveTab('notes');
